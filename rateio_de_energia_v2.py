@@ -82,7 +82,9 @@ with col1:
 with col2:
     leitura_predio_at = st.number_input("Leitura atual do prédio (kWh)", min_value=0, step=1)
 
-nome_simulacao = st.text_input("Identificação da simulação", value=datetime.now().strftime("%d/%m/%Y %H:%M"))
+from zoneinfo import ZoneInfo
+hora_local = datetime.now(ZoneInfo("America/Sao_Paulo"))
+nome_simulacao = st.text_input("Identificação da simulação", value=hora_local.strftime("%d/%m/%Y %H:%M"))
 
 # ---------------- Interface: Quitinetes ----------------
 st.header("🏠 Leituras das quitinetes")
