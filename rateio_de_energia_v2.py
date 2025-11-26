@@ -10,9 +10,15 @@ from openpyxl.utils import get_column_letter
 st.set_page_config(page_title="Rateio de Energia", page_icon="💡", layout="wide")
 st.title("💡 Rateio de Energia - Quitinetes")
 
-# Estado: histórico
+# Estado inicial
 if "historico" not in st.session_state:
     st.session_state.historico = pd.DataFrame()
+if "df_resultado" not in st.session_state:
+    st.session_state.df_resultado = None
+if "resumo_resultado" not in st.session_state:
+    st.session_state.resumo_resultado = None
+if "alertas_resultado" not in st.session_state:
+    st.session_state.alertas_resultado = []
 
 # ---------------- Sidebar: Tarifas e configurações ----------------
 st.sidebar.header("⚙️ Tarifas Celesc (R$/kWh com tributos)")
@@ -47,6 +53,7 @@ fonte_consumo = st.sidebar.radio("Definir consumo total por:", ["Leituras do pr�
 
 # ---------------- Funções de cálculo ----------------
 def calcular_valor_base(consumo_kwh: float) -> float:
+    """Calcula TE + TUSD + Bandeira (sem COSIP), com faixas e bandeira conforme configuração."""
     c1 = min(consumo_kwh, 150.0)
     c2 = max(consumo_kwh - 150.0, 0.0)
 
@@ -61,6 +68,7 @@ def calcular_valor_base(consumo_kwh: float) -> float:
     return round(te + tusd + band, 2)
 
 def calcular_fatura_total(consumo_total_kwh: float) -> tuple[float, float]:
+    """Retorna (total_fatura, valor_base_sem_cosip)."""
     valor_base = calcular_valor_base(consumo_total_kwh)
     total = round(valor_base + cosip, 2)
     return total, valor_base
@@ -80,24 +88,25 @@ with col1:
 with col2:
     leitura_predio_at = st.number_input("Leitura atual do prédio (kWh)", min_value=0, step=1)
 
+# Identificador com horário local
 hora_local = datetime.now(ZoneInfo("America/Sao_Paulo"))
 nome_simulacao = st.text_input("Identificação da simulação", value=hora_local.strftime("%d/%m/%Y %H:%M"))
 
 # ---------------- Interface: Quitinetes ----------------
 st.header("🏠 Leituras das quitinetes")
 n = st.slider("Número de quitinetes", 1, 20, value=2)
-consumos_individuais = []
-nomes_inquilinos = []
+consumos_individuais: list[float] = []
+nomes_inquilinos: list[str] = []
 
 for i in range(n):
     with st.expander(f"Quitinete {i+1}", expanded=True):
         nome = st.text_input(f"Nome do inquilino Q{i+1}", key=f"nome_{i}")
         nomes_inquilinos.append(nome.strip() if nome.strip() else f"Q{i+1}")
 
-        c1, c2 = st.columns(2)
-        with c1:
+        c1col, c2col = st.columns(2)
+        with c1col:
             ant = st.number_input("Leitura anterior (kWh)", min_value=0, step=1, key=f"ant_{i}")
-        with c2:
+        with c2col:
             at = st.number_input("Leitura atual (kWh)", min_value=0, step=1, key=f"at_{i}")
 
         consumo = max(at - ant, 0)
@@ -105,31 +114,45 @@ for i in range(n):
 
 # ---------------- Ação: Calcular ----------------
 if st.button("Calcular"):
-    consumo_total = float(max(leitura_predio_at - leitura_predio_ant, 0)) if fonte_consumo == "Leituras do prédio" else float(sum(consumos_individuais))
+    # Consumo total conforme fonte
+    if fonte_consumo == "Leituras do prédio":
+        consumo_total = float(max(leitura_predio_at - leitura_predio_ant, 0))
+    else:
+        consumo_total = float(sum(consumos_individuais))
+
     valor_total, valor_base = calcular_fatura_total(consumo_total)
 
+    # Rateio
     if metodo_rateio == "Faixas individuais":
         valores_individuais = [calcular_valor_base(c) for c in consumos_individuais]
     else:
-        valores_individuais = [round((c / consumo_total) * valor_total, 2) if consumo_total > 0 else 0 for c in consumos_individuais]
+        # Proporcional ao total da fatura (proteção para total zero)
+        valores_individuais = [
+            round((c / consumo_total) * valor_total, 2) if consumo_total > 0 else 0.0
+            for c in consumos_individuais
+        ]
 
+    # DataFrame base
     df = pd.DataFrame(
         {"Consumo (kWh)": consumos_individuais, "Valor (R$)": valores_individuais},
         index=[f"Quitinete {i+1} - {nomes_inquilinos[i]}" for i in range(n)]
     )
 
+    # Áreas Comuns: consumo e valor com proteções
     soma_consumo_individual = float(sum(consumos_individuais))
     soma_valores_individuais = float(sum(valores_individuais))
 
     consumo_areas_comuns = round(consumo_total - soma_consumo_individual, 2)
     valor_areas_comuns = round(valor_total - soma_valores_individuais, 2)
 
+    # Normaliza ruídos de arredondamento
     if abs(consumo_areas_comuns) < 0.01:
         consumo_areas_comuns = 0.0
     if abs(valor_areas_comuns) < 0.01:
         valor_areas_comuns = 0.0
 
     alertas = []
+    # Corrige inconsistências negativas
     if consumo_areas_comuns < 0:
         alertas.append("Consumo das quitinetes excede o consumo total do prédio. Ajustei Áreas Comuns para 0 kWh.")
         consumo_areas_comuns = 0.0
@@ -137,18 +160,101 @@ if st.button("Calcular"):
         alertas.append("Soma dos valores individuais excede o total da fatura. Ajustei Áreas Comuns para R$ 0,00.")
         valor_areas_comuns = 0.0
 
-    if consumo_areas_comuns != 0.0 or valor_areas_comuns != 0.0:
+    # Adiciona Áreas Comuns se relevante
+    if (consumo_areas_comuns != 0.0) or (valor_areas_comuns != 0.0):
         df.loc["Áreas Comuns"] = [consumo_areas_comuns, valor_areas_comuns]
 
+    # Exibe totais e alertas
     st.success(f"Consumo total do prédio: {consumo_total} kWh")
     st.success(f"Valor base (TE+TUSD+Bandeira): R$ {valor_base:.2f}")
     st.success(f"Valor total da fatura: R$ {valor_total:.2f}")
     for msg in alertas:
         st.warning(msg)
 
+    # Salva resultado para uso fora do bloco de cálculo
+    st.session_state.df_resultado = df
+    st.session_state.alertas_resultado = alertas
+    st.session_state.resumo_resultado = {
+        "Consumo total (kWh)": consumo_total,
+        "Valor base (R$)": valor_base,
+        "COSIP (R$)": cosip,
+        "Total fatura (R$)": valor_total,
+        "Bandeira por faixa": "Sim" if usar_bandeira_por_faixa else "Não",
+        "Método de rateio": metodo_rateio,
+        "Fonte do consumo total": fonte_consumo,
+        "Identificação": nome_simulacao,
+    }
+
+    # Histórico
+    adicionar_historico(nome_simulacao, df, valor_total, consumo_total)
+
+# ---------------- Exibição persistente de resultados e exportação ----------------
+if st.session_state.df_resultado is not None:
     st.subheader("📊 Rateio detalhado")
-    st.dataframe(df.style.format({"Valor (R$)": "R${:,.2f}"}))
+    st.dataframe(st.session_state.df_resultado.style.format({"Valor (R$)": "R${:,.2f}"}))
 
     st.subheader("📈 Consumo por unidade")
-    df_plot = df.reset_index().rename(columns={"index": "Unidade"})
-    fig = px.bar(df_plot, x="Unidade", y="Consumo (kWh)", text="Consumo (k
+    df_plot = st.session_state.df_resultado.reset_index().rename(columns={"index": "Unidade"})
+    fig = px.bar(
+        df_plot, x="Unidade", y="Consumo (kWh)",
+        text="Consumo (kWh)", color="Unidade",
+        labels={"Unidade": "Unidade", "Consumo (kWh)": "Consumo (kWh)"}
+    )
+    fig.update_traces(textposition="outside")
+    st.plotly_chart(fig, use_container_width=True)
+
+    for msg in st.session_state.alertas_resultado:
+        st.warning(msg)
+
+    # Exportação Excel sempre disponível após cálculo
+    resumo_dict = st.session_state.resumo_resultado or {}
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        # Aba Rateio
+        st.session_state.df_resultado.to_excel(writer, sheet_name="Rateio", index=True)
+
+        # Aba Resumo
+        if resumo_dict:
+            resumo = pd.DataFrame({
+                "Item": list(resumo_dict.keys()),
+                "Valor": list(resumo_dict.values())
+            })
+            resumo.to_excel(writer, sheet_name="Resumo", index=False)
+
+        # Aba Histórico
+        if not st.session_state.historico.empty:
+            st.session_state.historico.to_excel(writer, sheet_name="Histórico", index=False)
+
+        # Ajuste simples de largura das colunas
+        for ws in writer.sheets.values():
+            for col in ws.columns:
+                max_length = 0
+                col_letter = get_column_letter(col[0].column)
+                for cell in col:
+                    try:
+                        if cell.value is not None:
+                            max_length = max(max_length, len(str(cell.value)))
+                    except Exception:
+                        pass
+                ws.column_dimensions[col_letter].width = max_length + 2
+
+    buffer.seek(0)
+    nome_id = resumo_dict.get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
+    st.download_button(
+        label="⬇️ Baixar relatório em Excel",
+        data=buffer,
+        file_name=f"rateio_{str(nome_id).replace('/', '-').replace(':', '-')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+# ---------------- Aba Histórico ----------------
+st.header("📅 Histórico de Rateios")
+if not st.session_state.historico.empty:
+    st.dataframe(st.session_state.historico)
+
+    st.divider()
+    if st.button("🧹 Iniciar novo histórico"):
+        st.session_state.historico = pd.DataFrame()
+        st.success("Histórico apagado com sucesso. Pronto para uma nova simulação.")
+else:
+    st.info("Nenhum registro no histórico ainda. Faça um cálculo para começar.")
