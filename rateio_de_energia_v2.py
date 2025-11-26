@@ -127,4 +127,4 @@ if st.button("Calcular"):
             f"ICMS total R$ {detalhamento['tributos']['icms_total']} | COSIP: R$ {cosip}")
     st.success(f"Valor total da fatura: R$ {valor_total}")
 
-    st.subheader("📊 Rateio detalhado (valores base,
+st.subheader("📊 Rateio detalhado (valores base, sem tributos)")
