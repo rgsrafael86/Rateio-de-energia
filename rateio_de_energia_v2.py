@@ -143,11 +143,4 @@ if st.button("Calcular"):
     fig.update_traces(textposition="outside")
     st.plotly_chart(fig, use_container_width=True)
 
-    adicionar_historico(nome_simulacao, df, valor_total, consumo_total)
-
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df.to_excel(writer, sheet_name="Rateio", index=True)
-        resumo = pd.DataFrame({
-            "Item": ["Consumo total (kWh)", "Valor base (R$)", "COSIP (R$)", "Total fatura (R$)",]
-                     "Bandeira por faixa"
+    adicionar_histor
