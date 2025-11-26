@@ -3,6 +3,8 @@ import pandas as pd
 import plotly.express as px
 import io
 from datetime import datetime
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
 
 # Configuração da página
 st.set_page_config(page_title="Rateio de Energia", page_icon="💡", layout="wide")
@@ -12,7 +14,7 @@ st.title("💡 Rateio de Energia - Quitinetes")
 if "historico" not in st.session_state:
     st.session_state.historico = pd.DataFrame()
 
-# Sidebar: Configuração de tarifas (valores já com tributos embutidos, iguais à fatura real)
+# Sidebar: Configuração de tarifas
 st.sidebar.header("⚙️ Tarifas e Bandeiras")
 tarifas = {
     'te_ate_150': st.sidebar.number_input("TE até 150 kWh", value=0.392200, format="%.6f"),
@@ -25,19 +27,16 @@ bandeiras = {
     "verde": 0.00000,
     "amarela": 0.01866,
     "vermelha1": 0.04463,
-    "vermelha2": 0.075660  # valor unitário da bandeira vermelha 2
+    "vermelha2": 0.075660
 }
 
 # Funções de cálculo
 def calcular_valor_consumo(consumo, tarifas, bandeira):
     consumo_1 = min(consumo, 150)
     consumo_2 = max(consumo - 150, 0)
-
-    # Usa tarifas já com tributos embutidos
     valor_te = (consumo_1 * tarifas['te_ate_150']) + (consumo_2 * tarifas['te_acima_150'])
     valor_tusd = (consumo_1 * tarifas['tusd_ate_150']) + (consumo_2 * tarifas['tusd_acima_150'])
     valor_bandeira = consumo * bandeiras[bandeira]
-
     total = valor_te + valor_tusd + valor_bandeira
     return round(total, 2)
 
@@ -53,7 +52,7 @@ def adicionar_historico(mes, df, valor_total, consumo_total):
     linha["Valor Total"] = valor_total
     st.session_state.historico = pd.concat([st.session_state.historico, linha.reset_index()], ignore_index=True)
 
-# Seção: Leituras do prédio
+# Leituras do prédio
 st.header("🔢 Leituras do Prédio")
 col1, col2 = st.columns(2)
 with col1:
@@ -63,7 +62,7 @@ with col2:
 
 bandeira = st.radio("Bandeira vigente", list(bandeiras.keys()))
 
-# Seção: Leituras das quitinetes
+# Leituras das quitinetes
 st.header("🏠 Leituras das Quitinetes")
 n = st.slider("Número de quitinetes", 1, 20)
 consumos_individuais = []
@@ -95,11 +94,11 @@ if st.button("Calcular"):
     st.success(f"Consumo total do prédio: {consumo_total} kWh")
     st.success(f"Valor total da fatura: R$ {valor_total}")
 
-    # Exibe tabela
+    # Tabela
     st.subheader("📊 Rateio detalhado")
     st.dataframe(df.style.format({"Valor (R$)": "R${:,.2f}"}))
 
-    # Gráfico com Plotly
+    # Gráfico
     st.subheader("📈 Consumo por unidade")
     fig = px.bar(df.reset_index(), x="index", y="Consumo (kWh)",
                  text="Consumo (kWh)", color="index",
@@ -107,58 +106,55 @@ if st.button("Calcular"):
     fig.update_traces(textposition="outside")
     st.plotly_chart(fig, use_container_width=True)
 
-    # Adiciona ao histórico
+    # Histórico
     mes = datetime.now().strftime("%m/%Y")
     adicionar_historico(mes, df, valor_total, consumo_total)
 
-    # Download Excel
-    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-from openpyxl.utils import get_column_letter
+    # Excel formatado
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, sheet_name="Rateio", index=True)
+        ws = writer.sheets["Rateio"]
 
-buffer = io.BytesIO()
-with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-    df.to_excel(writer, sheet_name="Rateio", index=True)
-    ws = writer.sheets["Rateio"]
+        # Estilos
+        header_font = Font(bold=True)
+        center_align = Alignment(horizontal="center")
+        currency_format = "R$ #,##0.00"
+        number_format = "#,##0"
+        fill_comum = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
+        border = Border(left=Side(style="thin"), right=Side(style="thin"),
+                        top=Side(style="thin"), bottom=Side(style="thin"))
 
-    # Estilos
-    header_font = Font(bold=True)
-    center_align = Alignment(horizontal="center")
-    currency_format = "R$ #,##0.00"
-    number_format = "#,##0"
-    fill_comum = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
-    border = Border(left=Side(style="thin"), right=Side(style="thin"),
-                    top=Side(style="thin"), bottom=Side(style="thin"))
+        for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=3):
+            for cell in row:
+                cell.border = border
+                if cell.row == 1:
+                    cell.font = header_font
+                    cell.alignment = center_align
+                elif cell.column == 3:
+                    cell.number_format = currency_format
+                elif cell.column == 2:
+                    cell.number_format = number_format
 
-    # Aplica estilos
-    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=3):
-        for cell in row:
-            cell.border = border
-            if cell.row == 1:
-                cell.font = header_font
-                cell.alignment = center_align
-            elif cell.column == 3:
-                cell.number_format = currency_format
-            elif cell.column == 2:
-                cell.number_format = number_format
+        # Destaque para Áreas Comuns
+        for row in ws.iter_rows(min_row=ws.max_row, max_row=ws.max_row):
+            for cell in row:
+                cell.fill = fill_comum
 
-    # Destaque para Áreas Comuns
-    for cell in ws[ws.max_row]:
-        cell.fill = fill_comum
+        # Autoajuste de largura
+        for col in ws.columns:
+            max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+            ws.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
 
-    # Autoajuste de largura
-    for col in ws.columns:
-        max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
-        ws.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
+    buffer.seek(0)
+    st.download_button(
+        label="⬇️ Baixar relatório em Excel",
+        data=buffer,
+        file_name=f"rateio_{mes}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
-buffer.seek(0)
-st.download_button(
-    label="⬇️ Baixar relatório em Excel",
-    data=buffer,
-    file_name=f"rateio_{mes}.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
-
-# Seção: Histórico acumulado
+# Histórico acumulado
 if not st.session_state.historico.empty:
     st.header("📅 Histórico de Rateios")
     st.dataframe(st.session_state.historico)
