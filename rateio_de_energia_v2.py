@@ -12,34 +12,33 @@ st.title("💡 Rateio de Energia - Quitinetes")
 if "historico" not in st.session_state:
     st.session_state.historico = pd.DataFrame()
 
-# Sidebar: Configuração de tarifas
+# Sidebar: Configuração de tarifas (valores já com tributos embutidos, iguais à fatura real)
 st.sidebar.header("⚙️ Tarifas e Bandeiras")
 tarifas = {
     'te_ate_150': st.sidebar.number_input("TE até 150 kWh", value=0.392200, format="%.6f"),
-    'te_acima_150': st.sidebar.number_input("TE acima de 150 kWh", value=0.415851, format="%.6f"),
-    'tusd_ate_150': st.sidebar.number_input("TUSD até 150 kWh", value=0.455333, format="%.6f"),
-    'tusd_acima_150': st.sidebar.number_input("TUSD acima de 150 kWh", value=0.482660, format="%.6f"),
-    'icms_ate_150': st.sidebar.number_input("ICMS até 150 kWh", value=0.12, format="%.2f"),
-    'icms_acima_150': st.sidebar.number_input("ICMS acima de 150 kWh", value=0.17, format="%.2f"),
+    'te_acima_150': st.sidebar.number_input("TE acima de 150 kWh", value=0.456583, format="%.6f"),
+    'tusd_ate_150': st.sidebar.number_input("TUSD até 150 kWh", value=0.455833, format="%.6f"),
+    'tusd_acima_150': st.sidebar.number_input("TUSD acima de 150 kWh", value=0.456583, format="%.6f"),
     'cosip': st.sidebar.number_input("COSIP (R$)", value=17.01, format="%.2f")
 }
 bandeiras = {
     "verde": 0.00000,
     "amarela": 0.01866,
     "vermelha1": 0.04463,
-    "vermelha2": 0.08777
+    "vermelha2": 0.075660  # valor unitário da bandeira vermelha 2
 }
 
 # Funções de cálculo
 def calcular_valor_consumo(consumo, tarifas, bandeira):
     consumo_1 = min(consumo, 150)
     consumo_2 = max(consumo - 150, 0)
+
+    # Usa tarifas já com tributos embutidos
     valor_te = (consumo_1 * tarifas['te_ate_150']) + (consumo_2 * tarifas['te_acima_150'])
     valor_tusd = (consumo_1 * tarifas['tusd_ate_150']) + (consumo_2 * tarifas['tusd_acima_150'])
     valor_bandeira = consumo * bandeiras[bandeira]
-    icms_1 = (consumo_1 * (tarifas['te_ate_150'] + tarifas['tusd_ate_150'])) * tarifas['icms_ate_150']
-    icms_2 = (consumo_2 * (tarifas['te_acima_150'] + tarifas['tusd_acima_150'])) * tarifas['icms_acima_150']
-    total = valor_te + valor_tusd + valor_bandeira + icms_1 + icms_2
+
+    total = valor_te + valor_tusd + valor_bandeira
     return round(total, 2)
 
 def calcular_fatura_total(leitura_anterior, leitura_atual, tarifas, bandeira):
