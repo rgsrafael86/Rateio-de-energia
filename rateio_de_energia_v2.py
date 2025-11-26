@@ -109,9 +109,12 @@ if st.button("Calcular"):
     }, index=[f"Quitinete {i+1} - {nomes_inquilinos[i]}" for i in range(n)])
 
     soma_valores_individuais = sum(valores_individuais)
-    diferenca = round(valor_total - soma_valores_individuais, 2)
-    if abs(diferenca) >= 0.01:
-        df.loc["Áreas Comuns"] = [0, diferenca]
+soma_consumo_individual = sum(consumos_individuais)
+consumo_areas_comuns = round(consumo_total - soma_consumo_individual, 2)
+valor_areas_comuns = round(valor_total - soma_valores_individuais, 2)
+
+if abs(valor_areas_comuns) >= 0.01 or abs(consumo_areas_comuns) >= 0.01:
+    df.loc["Áreas Comuns"] = [consumo_areas_comuns, valor_areas_comuns]
 
     st.success(f"Consumo total do prédio: {consumo_total} kWh")
     st.success(f"Valor base (TE+TUSD+Bandeira): R$ {valor_base:.2f}")
