@@ -124,9 +124,16 @@ if st.button("Calcular"):
 
     # Monta DataFrame
     df = pd.DataFrame({
-        "Consumo (kWh)": consumos_individuais,
-        "Valor (R$)": valores_individuais
-    }, index=[f"Quitinete {i+1} - {nomes_inquilinos[i]}" for i in range(n)])
+    "Consumo (kWh)": consumos_individuais,
+    "Valor (R$)": valores_individuais
+}, index=[f"Quitinete {i+1} - {nomes_inquilinos[i]}" for i in range(n)])
+
+# Verifica diferença
+soma_individual = sum(valores_individuais)
+diferenca = round(valor_total - soma_individual, 2)
+
+if abs(diferenca) >= 0.01:
+    df.loc["Áreas Comuns"] = [0, diferenca]
 
     # Exibe totais
     st.success(f"Consumo total do prédio: {consumo_total} kWh")
