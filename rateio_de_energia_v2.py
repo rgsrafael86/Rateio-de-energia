@@ -14,147 +14,117 @@ st.title("💡 Rateio de Energia - Quitinetes")
 if "historico" not in st.session_state:
     st.session_state.historico = pd.DataFrame()
 
-# Sidebar: Configuração de tarifas
-st.sidebar.header("⚙️ Tarifas e Bandeiras")
+# Sidebar: Configurações
+st.sidebar.header("⚙️ Tarifas (R$/kWh) por faixa")
 tarifas = {
-    'te_ate_150': st.sidebar.number_input("TE até 150 kWh", value=0.392200, format="%.6f"),
-    'te_acima_150': st.sidebar.number_input("TE acima de 150 kWh", value=0.456583, format="%.6f"),
-    'tusd_ate_150': st.sidebar.number_input("TUSD até 150 kWh", value=0.455833, format="%.6f"),
-    'tusd_acima_150': st.sidebar.number_input("TUSD acima de 150 kWh", value=0.456583, format="%.6f"),
-    'cosip': st.sidebar.number_input("COSIP (R$)", value=17.01, format="%.2f")
+    "te_ate_150": st.sidebar.number_input("TE até 150 kWh", value=0.392200, format="%.6f"),
+    "te_acima_150": st.sidebar.number_input("TE acima 150 kWh", value=0.456583, format="%.6f"),
+    "tusd_ate_150": st.sidebar.number_input("TUSD até 150 kWh", value=0.455833, format="%.6f"),
+    "tusd_acima_150": st.sidebar.number_input("TUSD acima de 150 kWh", value=0.456583, format="%.6f"),
 }
+
+st.sidebar.header("🚩 Bandeiras (R$/kWh)")
 bandeiras = {
-    "verde": 0.00000,
-    "amarela": 0.01866,
-    "vermelha1": 0.04463,
-    "vermelha2": 0.075660
+    "verde": st.sidebar.number_input("Verde", value=0.000000, format="%.6f"),
+    "amarela": st.sidebar.number_input("Amarela", value=0.018660, format="%.6f"),
+    "vermelha1": st.sidebar.number_input("Vermelha 1", value=0.044630, format="%.6f"),
+    "vermelha2": st.sidebar.number_input("Vermelha 2", value=0.075660, format="%.6f"),
 }
 
-# Funções de cálculo
-def calcular_valor_consumo(consumo, tarifas, bandeira):
-    consumo_1 = min(consumo, 150)
-    consumo_2 = max(consumo - 150, 0)
-    valor_te = (consumo_1 * tarifas['te_ate_150']) + (consumo_2 * tarifas['te_acima_150'])
-    valor_tusd = (consumo_1 * tarifas['tusd_ate_150']) + (consumo_2 * tarifas['tusd_acima_150'])
-    valor_bandeira = consumo * bandeiras[bandeira]
-    total = valor_te + valor_tusd + valor_bandeira
-    return round(total, 2)
+st.sidebar.header("🏛️ Tributos")
+pis_percent = st.sidebar.number_input("PIS (%)", value=1.20, format="%.2f")
+cofins_percent = st.sidebar.number_input("COFINS (%)", value=5.53, format="%.2f")
+pis_cofins_base = st.sidebar.number_input("Base de cálculo PIS/COFINS (R$)", value=193.65, format="%.2f")
 
-def calcular_fatura_total(leitura_anterior, leitura_atual, tarifas, bandeira):
-    consumo_total = leitura_atual - leitura_anterior
-    valor_total = calcular_valor_consumo(consumo_total, tarifas, bandeira) + tarifas['cosip']
-    return round(valor_total, 2), consumo_total
+icms_base_1 = st.sidebar.number_input("Base ICMS 1 (R$)", value=135.29, format="%.2f")
+icms_aliquota_1 = st.sidebar.number_input("Alíquota ICMS 1 (%)", value=12.00, format="%.2f")
+icms_base_2 = st.sidebar.number_input("Base ICMS 2 (R$)", value=89.88, format="%.2f")
+icms_aliquota_2 = st.sidebar.number_input("Alíquota ICMS 2 (%)", value=17.00, format="%.2f")
 
-def adicionar_historico(mes, df, valor_total, consumo_total):
+st.sidebar.header("🏙️ Outras taxas")
+cosip = st.sidebar.number_input("COSIP (R$)", value=17.01, format="%.2f")
+
+# Funções
+def fatura_energia(consumo_kwh: float, bandeira_key: str) -> dict:
+    c1 = min(consumo_kwh, 150)
+    c2 = max(consumo_kwh - 150, 0)
+    te = c1 * tarifas["te_ate_150"] + c2 * tarifas["te_acima_150"]
+    tusd = c1 * tarifas["tusd_ate_150"] + c2 * tarifas["tusd_acima_150"]
+    band = consumo_kwh * bandeiras[bandeira_key]
+    return {"consumo": consumo_kwh, "te": te, "tusd": tusd, "bandeira": band}
+
+def calcular_tributos():
+    pis_val = pis_cofins_base * (pis_percent / 100.0)
+    cofins_val = pis_cofins_base * (cofins_percent / 100.0)
+    icms1_val = icms_base_1 * (icms_aliquota_1 / 100.0)
+    icms2_val = icms_base_2 * (icms_aliquota_2 / 100.0)
+    return {
+        "pis": round(pis_val, 2),
+        "cofins": round(cofins_val, 2),
+        "icms_1": round(icms1_val, 2),
+        "icms_2": round(icms2_val, 2),
+        "icms_total": round(icms1_val + icms2_val, 2),
+    }
+
+def calcular_fatura_total(leitura_ant: int, leitura_at: int, bandeira_key: str):
+    consumo = max(leitura_at - leitura_ant, 0)
+    base = fatura_energia(consumo, bandeira_key)
+    valor_base = base["te"] + base["tusd"] + base["bandeira"]
+    trib = calcular_tributos()
+    total = round(valor_base + trib["pis"] + trib["cofins"] + trib["icms_total"] + cosip, 2)
+    return total, consumo, {"base": base, "tributos": trib}
+
+def adicionar_historico(nome_simulacao: str, df: pd.DataFrame, valor_total: float, consumo_total: float):
     linha = df.copy()
-    linha["Mês"] = mes
+    linha["Identificação"] = nome_simulacao
     linha["Consumo Total"] = consumo_total
     linha["Valor Total"] = valor_total
     st.session_state.historico = pd.concat([st.session_state.historico, linha.reset_index()], ignore_index=True)
 
-# Leituras do prédio
-st.header("🔢 Leituras do Prédio")
+# Interface
+st.header("🔢 Leituras do prédio")
 col1, col2 = st.columns(2)
 with col1:
-    leitura_anterior = st.number_input("Leitura anterior do prédio", min_value=0, step=1)
+    leitura_predio_ant = st.number_input("Leitura anterior do prédio", min_value=0, step=1)
 with col2:
-    leitura_atual = st.number_input("Leitura atual do prédio", min_value=0, step=1)
+    leitura_predio_at = st.number_input("Leitura atual do prédio", min_value=0, step=1)
 
-bandeira = st.radio("Bandeira vigente", list(bandeiras.keys()))
+bandeira_sel = st.radio("Bandeira vigente", list(bandeiras.keys()))
+nome_simulacao = st.text_input("Identificação da simulação (ex.: Conta Nov/2025)", value=datetime.now().strftime("%d/%m/%Y %H:%M"))
 
-# Leituras das quitinetes
-st.header("🏠 Leituras das Quitinetes")
-n = st.slider("Número de quitinetes", 1, 20)
-consumos_individuais = []
-valores_individuais = []
+st.header("🏠 Leituras das quitinetes")
+n = st.slider("Número de quitinetes", 1, 20, value=2)
+consumos_individuais, valores_individuais = [], []
 
 for i in range(n):
     with st.expander(f"Quitinete {i+1}", expanded=True):
-        colA, colB = st.columns(2)
-        with colA:
-            leitura_ant = st.number_input(f"Leitura anterior Q{i+1}", min_value=0, step=1, key=f"ant_{i}")
-        with colB:
-            leitura_at = st.number_input(f"Leitura atual Q{i+1}", min_value=0, step=1, key=f"at_{i}")
-        consumo = leitura_at - leitura_ant
-        consumos_individuais.append(consumo)
-        valores_individuais.append(calcular_valor_consumo(consumo, tarifas, bandeira))
+        c1, c2 = st.columns(2)
+        with c1:
+            ant = st.number_input(f"Leitura anterior Q{i+1}", min_value=0, step=1, key=f"ant_{i}")
+        with c2:
+            at = st.number_input(f"Leitura atual Q{i+1}", min_value=0, step=1, key=f"at_{i}")
+        consumo_q = max(at - ant, 0)
+        consumos_individuais.append(consumo_q)
+        base_q = fatura_energia(consumo_q, bandeira_sel)
+        valores_individuais.append(round(base_q["te"] + base_q["tusd"] + base_q["bandeira"], 2))
 
-# Botão de cálculo
 if st.button("Calcular"):
-    valor_total, consumo_total = calcular_fatura_total(leitura_anterior, leitura_atual, tarifas, bandeira)
-    soma_individuais = sum(consumos_individuais)
-    saldo_consumo = consumo_total - soma_individuais
-    saldo_valor = round(valor_total - sum(valores_individuais), 2)
+    valor_total, consumo_total, detalhamento = calcular_fatura_total(leitura_predio_ant, leitura_predio_at, bandeira_sel)
+    soma_ind = sum(consumos_individuais)
+    saldo_consumo = consumo_total - soma_ind
+    valor_ind_sum = sum(valores_individuais)
+    base_areas = fatura_energia(max(saldo_consumo, 0), bandeira_sel)
+    valor_areas = round(base_areas["te"] + base_areas["tusd"] + base_areas["bandeira"], 2)
 
     df = pd.DataFrame({
         "Consumo (kWh)": consumos_individuais + [saldo_consumo],
-        "Valor (R$)": valores_individuais + [saldo_valor]
+        "Valor base (R$)": valores_individuais + [valor_areas],
     }, index=[f"Quitinete {i+1}" for i in range(n)] + ["Áreas Comuns"])
 
     st.success(f"Consumo total do prédio: {consumo_total} kWh")
+    st.success(f"Valor base (TE+TUSD+Bandeira): R$ {round(valor_ind_sum + valor_areas, 2)}")
+    st.info(f"Tributos: PIS R$ {detalhamento['tributos']['pis']}, COFINS R$ {detalhamento['tributos']['cofins']}, "
+            f"ICMS total R$ {detalhamento['tributos']['icms_total']} | COSIP: R$ {cosip}")
     st.success(f"Valor total da fatura: R$ {valor_total}")
 
-    # Tabela
-    st.subheader("📊 Rateio detalhado")
-    st.dataframe(df.style.format({"Valor (R$)": "R${:,.2f}"}))
-
-    # Gráfico
-    st.subheader("📈 Consumo por unidade")
-    fig = px.bar(df.reset_index(), x="index", y="Consumo (kWh)",
-                 text="Consumo (kWh)", color="index",
-                 labels={"index": "Unidade", "Consumo (kWh)": "Consumo (kWh)"})
-    fig.update_traces(textposition="outside")
-    st.plotly_chart(fig, use_container_width=True)
-
-    # Histórico
-    mes = datetime.now().strftime("%m/%Y")
-    adicionar_historico(mes, df, valor_total, consumo_total)
-
-    # Excel formatado
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df.to_excel(writer, sheet_name="Rateio", index=True)
-        ws = writer.sheets["Rateio"]
-
-        # Estilos
-        header_font = Font(bold=True)
-        center_align = Alignment(horizontal="center")
-        currency_format = "R$ #,##0.00"
-        number_format = "#,##0"
-        fill_comum = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
-        border = Border(left=Side(style="thin"), right=Side(style="thin"),
-                        top=Side(style="thin"), bottom=Side(style="thin"))
-
-        for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=3):
-            for cell in row:
-                cell.border = border
-                if cell.row == 1:
-                    cell.font = header_font
-                    cell.alignment = center_align
-                elif cell.column == 3:
-                    cell.number_format = currency_format
-                elif cell.column == 2:
-                    cell.number_format = number_format
-
-        # Destaque para Áreas Comuns
-        for row in ws.iter_rows(min_row=ws.max_row, max_row=ws.max_row):
-            for cell in row:
-                cell.fill = fill_comum
-
-        # Autoajuste de largura
-        for col in ws.columns:
-            max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
-            ws.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
-
-    buffer.seek(0)
-    st.download_button(
-        label="⬇️ Baixar relatório em Excel",
-        data=buffer,
-        file_name=f"rateio_{mes}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-# Histórico acumulado
-if not st.session_state.historico.empty:
-    st.header("📅 Histórico de Rateios")
-    st.dataframe(st.session_state.historico)
+    st.subheader("📊 Rateio detalhado (valores base,
