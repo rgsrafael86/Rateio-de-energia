@@ -240,7 +240,7 @@ if not st.session_state.historico.empty:
 
     # Seleção de linhas
     linhas_selecionadas = st.multiselect(
-        "Selecione os registros que deseja excluir:",
+        "Selecione os registros caso queira excluir:",
         options=historico["Index"].tolist(),
         format_func=lambda x: f"{historico.loc[x, 'Identificação']} — {historico.loc[x, 'Consumo Total']} kWh"
     )
