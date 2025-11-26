@@ -112,34 +112,42 @@ if st.button("Calcular"):
     consumo_areas_comuns = round(consumo_total - soma_consumo_individual, 2)
     valor_areas_comuns = round(valor_total - soma_valores_individuais, 2)
 
-    if abs(valor_areas_comuns) >= 0.01 or abs(consumo_areas_comuns) >= 0.01:
+    if abs(consumo_areas_comuns) < 0.01:
+        consumo_areas_comuns = 0.0
+    if abs(valor_areas_comuns) < 0.01:
+        valor_areas_comuns = 0.0
+
+    alertas = []
+    if consumo_areas_comuns < 0:
+        alertas.append("Consumo das quitinetes excede o consumo total do prédio. Ajustei Áreas Comuns para 0 kWh.")
+        consumo_areas_comuns = 0.0
+    if valor_areas_comuns < 0:
+        alertas.append("Soma dos valores individuais excede o total da fatura. Ajustei Áreas Comuns para R$ 0,00.")
+        valor_areas_comuns = 0.0
+
+    if consumo_areas_comuns != 0.0 or valor_areas_comuns != 0.0:
         df.loc["Áreas Comuns"] = [consumo_areas_comuns, valor_areas_comuns]
 
     st.success(f"Consumo total do prédio: {consumo_total} kWh")
     st.success(f"Valor base (TE+TUSD+Bandeira): R$ {valor_base:.2f}")
     st.success(f"Valor total da fatura: R$ {valor_total:.2f}")
+    for msg in alertas:
+        st.warning(msg)
 
     st.subheader("📊 Rateio detalhado")
     st.dataframe(df.style.format({"Valor (R$)": "R${:,.2f}"}))
 
     st.subheader("📈 Consumo por unidade")
-    fig = px.bar(df.reset_index(), x="index", y="Consumo (kWh)", text="Consumo (kWh)", color="index")
+    df_plot = df.reset_index().rename(columns={"index": "Unidade"})
+    fig = px.bar(df_plot, x="Unidade", y="Consumo (kWh)", text="Consumo (kWh)", color="Unidade")
     fig.update_traces(textposition="outside")
     st.plotly_chart(fig, use_container_width=True)
 
     adicionar_historico(nome_simulacao, df, valor_total, consumo_total)
 
-    # Exportação Excel
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df.to_excel(writer, sheet_name="Rateio", index=True)
         resumo = pd.DataFrame({
             "Item": ["Consumo total (kWh)", "Valor base (R$)", "COSIP (R$)", "Total fatura (R$)",
-                     "Bandeira por faixa", "Método de rateio", "Fonte do consumo total"],
-            "Valor": [consumo_total, valor_base, cosip, valor_total,
-                      "Sim" if usar_bandeira_por_faixa else "Não",
-                      metodo_rateio, fonte_consumo]
-        })
-        resumo.to_excel(writer, sheet_name="Resumo", index=False)
-        if not st.session_state.historico.empty:
-            st
+                     "Bandeira por faixa
