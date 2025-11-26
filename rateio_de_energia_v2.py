@@ -143,4 +143,9 @@ if st.button("Calcular"):
     fig.update_traces(textposition="outside")
     st.plotly_chart(fig, use_container_width=True)
 
-    adicionar_histor
+    adicionar_historico(nome_simulacao, df, valor_total, consumo_total)
+
+    # Exportação Excel
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, sheet
