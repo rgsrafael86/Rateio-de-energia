@@ -233,4 +233,20 @@ if st.button("Calcular"):
 # ---------------- Histórico ----------------
 if not st.session_state.historico.empty:
     st.header("📅 Histórico de Rateios")
-    st.dataframe(st.session_state.historico)
+
+    historico = st.session_state.historico.copy()
+    historico.index.name = "Index"
+    historico.reset_index(inplace=True)
+
+    # Seleção de linhas
+    linhas_selecionadas = st.multiselect(
+        "Selecione os registros que deseja excluir:",
+        options=historico["Index"].tolist(),
+        format_func=lambda x: f"{historico.loc[x, 'Identificação']} — {historico.loc[x, 'Consumo Total']} kWh"
+    )
+
+    if linhas_selecionadas and st.button("🗑️ Excluir selecionados"):
+        st.session_state.historico = historico[~historico["Index"].isin(linhas_selecionadas)].drop(columns=["Index"])
+        st.success(f"{len(linhas_selecionadas)} registro(s) excluído(s) com sucesso.")
+
+    st.dataframe(historico.drop(columns=["Index"]))
