@@ -112,16 +112,51 @@ if st.button("Calcular"):
     adicionar_historico(mes, df, valor_total, consumo_total)
 
     # Download Excel
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df.to_excel(writer, sheet_name="Rateio", index=True)
-    buffer.seek(0)
-    st.download_button(
-        label="⬇️ Baixar relatório em Excel",
-        data=buffer,
-        file_name=f"rateio_{mes}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
+
+buffer = io.BytesIO()
+with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+    df.to_excel(writer, sheet_name="Rateio", index=True)
+    ws = writer.sheets["Rateio"]
+
+    # Estilos
+    header_font = Font(bold=True)
+    center_align = Alignment(horizontal="center")
+    currency_format = "R$ #,##0.00"
+    number_format = "#,##0"
+    fill_comum = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
+    border = Border(left=Side(style="thin"), right=Side(style="thin"),
+                    top=Side(style="thin"), bottom=Side(style="thin"))
+
+    # Aplica estilos
+    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=3):
+        for cell in row:
+            cell.border = border
+            if cell.row == 1:
+                cell.font = header_font
+                cell.alignment = center_align
+            elif cell.column == 3:
+                cell.number_format = currency_format
+            elif cell.column == 2:
+                cell.number_format = number_format
+
+    # Destaque para Áreas Comuns
+    for cell in ws[ws.max_row]:
+        cell.fill = fill_comum
+
+    # Autoajuste de largura
+    for col in ws.columns:
+        max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+        ws.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
+
+buffer.seek(0)
+st.download_button(
+    label="⬇️ Baixar relatório em Excel",
+    data=buffer,
+    file_name=f"rateio_{mes}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 
 # Seção: Histórico acumulado
 if not st.session_state.historico.empty:
