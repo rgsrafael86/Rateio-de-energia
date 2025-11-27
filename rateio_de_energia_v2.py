@@ -349,3 +349,14 @@ with st.expander("📏 Fonte de consumo total", expanded=False):
     """)
 
 st.caption("Estas explicações são referenciais e não substituem as regras oficiais da concessionária.")
+
+# -------------------------------
+# RODAPÉ
+# -------------------------------
+st.markdown("---")
+st.markdown(
+    "<div style='text-align: center; color: grey; font-size: 14px;'>"
+    "Desenvolvido por <strong>Rafael Guimarães dos Santos</strong> — Todos os direitos reservados ©"
+    "</div>",
+    unsafe_allow_html=True
+)
