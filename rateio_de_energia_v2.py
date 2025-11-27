@@ -292,3 +292,63 @@ if not st.session_state.historico.empty:
 else:
     st.info("Nenhum registro no histórico ainda. Faça um cálculo para começar.")
 
+# -------------------------------
+# EXPLICAÇÕES DISCRETAS (FIM DA PÁGINA)
+# -------------------------------
+st.divider()
+st.caption("Orientações rápidas sobre configurações")
+
+with st.expander("🚩 Bandeiras tarifárias", expanded=False):
+    st.markdown("""
+    As bandeiras tarifárias indicam custos extras na geração de energia:
+
+    - **Verde** → sem acréscimo  
+    - **Amarela** → pequeno acréscimo por kWh  
+    - **Vermelha 1 e 2** → acréscimos maiores
+
+    Se usar **por faixa**, aplica-se:
+    - Até 150 kWh → valor reduzido  
+    - Acima de 150 kWh → valor cheio
+    """)
+
+with st.expander("📊 Bandeira por faixa (como na fatura)", expanded=False):
+    st.markdown("""
+    Aplica valores diferentes conforme o consumo:
+
+    - **Até 150 kWh:** usa o valor reduzido  
+    - **Acima de 150 kWh:** usa o valor cheio
+
+    Como calculamos:
+    - Consumo é separado em duas partes: até 150 kWh e excedente.
+    - Somamos: (até 150 × valor reduzido) + (excedente × valor cheio).
+
+    Exemplo:
+    - Consumo: 180 kWh  
+    - Resultado da bandeira ≈ R$ 9,89
+    """)
+
+with st.expander("🧮 Método de rateio", expanded=False):
+    st.markdown("""
+    **Faixas individuais**
+    - Calcula cada unidade como se tivesse sua própria fatura.
+    - Mais justo para quem consome pouco.
+    - Ideal quando cada unidade tem medidor próprio.
+
+    **Proporcional ao total da fatura**
+    - Divide o total do prédio proporcional ao consumo de cada unidade.
+    - Reflete exatamente a fatura real.
+    - Ideal quando há um único medidor.
+    """)
+
+with st.expander("📏 Fonte de consumo total", expanded=False):
+    st.markdown("""
+    **Leituras do prédio**
+    - Usa o medidor principal do prédio.
+    - Geralmente mais preciso.
+
+    **Soma das quitinetes**
+    - Soma os consumos individuais informados.
+    - Útil quando não há leitura do prédio ou ela está indisponível.
+    """)
+
+st.caption("Estas explicações são referenciais e não substituem as regras oficiais da concessionária.")
