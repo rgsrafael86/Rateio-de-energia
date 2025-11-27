@@ -292,62 +292,56 @@ if not st.session_state.historico.empty:
 else:
     st.info("Nenhum registro no histórico ainda. Faça um cálculo para começar.")
 
-# 🔹 Explicação sobre bandeira tarifária
-with st.sidebar.expander("ℹ️ Entenda as bandeiras tarifárias", expanded=False, key="expander_bandeira"):
-    st.markdown("""
-    As bandeiras tarifárias indicam custos extras na geração de energia:
+# -------------------------------
+# 🔹 Explicações na sidebar (sem expander)
+# -------------------------------
 
-    - **Verde** → sem acréscimo  
-    - **Amarela** → pequeno acréscimo por kWh  
-    - **Vermelha 1 e 2** → acréscimos maiores
+st.sidebar.markdown("---")
+st.sidebar.markdown("### ℹ️ Explicações rápidas")
 
-    Se usar **por faixa**, aplica-se:
-    - Até 150 kWh → valor reduzido  
-    - Acima de 150 kWh → valor cheio
-    """)
+# Bandeira tarifária
+st.sidebar.markdown("""
+**🚩 Bandeiras tarifárias**
 
-# 🔹 Explicação sobre bandeira por faixa (se estiver ativada)
+- Verde → sem acréscimo  
+- Amarela → pequeno acréscimo  
+- Vermelha 1 e 2 → acréscimos maiores
+
+Se usar **por faixa**:
+- Até 150 kWh → valor reduzido  
+- Acima de 150 kWh → valor cheio
+""")
+
+# Bandeira por faixa (se ativada)
 if bandeira == "Usar bandeira por faixa (como na fatura)":
-    with st.sidebar.expander("📊 Como funciona a bandeira por faixa", expanded=False, key="expander_faixa"):
-        st.markdown("""
-        A bandeira tarifária pode ser aplicada por **faixa de consumo**, como na fatura:
+    st.sidebar.markdown("""
+**📊 Bandeira por faixa**
 
-        - **Até 150 kWh:** usa o valor reduzido  
-        - **Acima de 150 kWh:** usa o valor cheio
+Aplica valores diferentes conforme o consumo:
 
-        **Exemplo:**
-        - Consumo: 180 kWh  
-        - Resultado da bandeira ≈ R$ 9,89
+- Até 150 kWh → valor reduzido  
+- Acima de 150 kWh → valor cheio
 
-        💡 Desmarque esta opção se quiser aplicar um único valor por kWh.
-        """)
+Exemplo:  
+Consumo de 180 kWh → bandeira ≈ R$ 9,89
+""")
 
-# 🔹 Explicação sobre método de rateio
-with st.sidebar.expander("ℹ️ Qual método de rateio usar?", expanded=False, key="expander_rateio"):
-    st.markdown("""
-    #### 🔹 Faixas individuais
-    Cada unidade é calculada como se tivesse sua própria fatura.
+# Método de rateio
+st.sidebar.markdown("""
+**🧮 Método de rateio**
 
-    - ✅ Mais justo para quem consome pouco  
-    - ⚠️ Pode gerar valores diferentes mesmo com consumos parecidos  
-    - 💡 Ideal quando cada unidade tem medidor próprio
+- Faixas individuais → mais justo para quem consome pouco  
+- Proporcional ao total → reflete a fatura real
 
-    #### 🔸 Proporcional ao total da fatura
-    O valor total é dividido proporcionalmente ao consumo.
+Use faixas individuais se cada unidade tem medidor próprio.
+""")
 
-    - ✅ Reflete exatamente a fatura real  
-    - ⚠️ Pode penalizar quem consome pouco  
-    - 💡 Ideal quando há um único medidor
-    """)
+# Fonte de consumo total
+st.sidebar.markdown("""
+**📏 Fonte de consumo total**
 
-# 🔹 Explicação sobre fonte de consumo total
-with st.sidebar.expander("ℹ️ Como definir o consumo total", expanded=False, key="expander_fonte"):
-    st.markdown("""
-    #### 🔹 Leituras do prédio
-    Usa o medidor principal → mais preciso.
+- Leituras do prédio → usa o medidor principal  
+- Soma das quitinetes → soma os consumos individuais
 
-    #### 🔸 Soma das quitinetes
-    Soma os consumos individuais informados → útil quando não há leitura do prédio.
-
-    💡 Dica: se tiver acesso ao medidor principal, prefira essa opção.
-    """)
+Dica: prefira a leitura do prédio se disponível.
+""")
