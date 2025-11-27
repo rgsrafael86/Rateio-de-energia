@@ -1,0 +1,268 @@
+# app.py
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+from io import BytesIO
+
+# -------------------------------
+# ⚙️ Configurações iniciais
+# -------------------------------
+st.set_page_config(page_title="Rateio de Energia", page_icon="⚡", layout="centered")
+
+if "import_resumo" not in st.session_state:
+    st.session_state.import_resumo = None
+if "import_rateio" not in st.session_state:
+    st.session_state.import_rateio = None
+if "prev_map" not in st.session_state:
+    st.session_state.prev_map = {}
+
+# -------------------------------
+# 🧭 Sidebar: setups e parâmetros
+# -------------------------------
+st.sidebar.title("Configurações")
+bandeiras = ["Verde", "Amarela", "Vermelha 1", "Vermelha 2"]
+metodos = ["Faixas individuais", "Proporcional ao total da fatura"]
+fontes_consumo = ["Leituras do prédio", "Soma das quitinetes"]
+
+# Índices iniciais (podem ser atualizados pela importação)
+bandeira_index = 0
+metodo_index = 0
+fonte_index = 0
+consumo_total_prédio = None
+
+# Se já houver importação anterior, tente aplicar
+if st.session_state.import_resumo is not None:
+    resumo_imp = st.session_state.import_resumo
+    try:
+        bandeira_val = resumo_imp.loc[resumo_imp["Item"] == "Bandeira por faixa", "Valor"].values[0]
+        if bandeira_val in bandeiras:
+            bandeira_index = bandeiras.index(bandeira_val)
+    except Exception:
+        pass
+
+    try:
+        metodo_val = resumo_imp.loc[resumo_imp["Item"] == "Método de rateio", "Valor"].values[0]
+        if metodo_val in metodos:
+            metodo_index = metodos.index(metodo_val)
+    except Exception:
+        pass
+
+    try:
+        fonte_val = resumo_imp.loc[resumo_imp["Item"] == "Fonte do consumo total", "Valor"].values[0]
+        if fonte_val in fontes_consumo:
+            fonte_index = fontes_consumo.index(fonte_val)
+    except Exception:
+        pass
+
+    try:
+        consumo_total_prédio = resumo_imp.loc[resumo_imp["Item"] == "Consumo total (kWh)", "Valor"].values[0]
+    except Exception:
+        consumo_total_prédio = None
+
+bandeira_sel = st.sidebar.radio("Bandeira tarifária", bandeiras, index=bandeira_index)
+metodo_rateio = st.sidebar.radio("Método de rateio", metodos, index=metodo_index)
+fonte_sel = st.sidebar.radio("Fonte do consumo total", fontes_consumo, index=fonte_index)
+
+st.sidebar.divider()
+st.sidebar.caption("Preços e totais da fatura")
+valor_base = st.sidebar.number_input("Valor base (R$)", min_value=0.0, value=0.0, step=0.01, format="%.2f")
+cosip = st.sidebar.number_input("COSIP (R$)", min_value=0.0, value=0.0, step=0.01, format="%.2f")
+total_fatura = st.sidebar.number_input("Total da fatura (R$)", min_value=0.0, value=0.0, step=0.01, format="%.2f")
+
+# -------------------------------
+# 🕒 Identificação e leituras
+# -------------------------------
+st.title("Rateio de energia por quitinetes")
+identificacao = st.text_input("Identificação da simulação (data/hora)", value=datetime.now().strftime("%d/%m/%Y %H:%M"))
+st.caption("A leitura atual deste mês será a leitura anterior do mês seguinte quando você importar o backup.")
+
+num_quitinetes = st.number_input("Número de quitinetes (inclua Áreas Comuns se aplicável)", min_value=1, value=1, step=1)
+
+# Coleta de leituras por quitinete
+quitinetes_data = []
+st.header("Leituras das quitinetes")
+
+for i in range(1, num_quitinetes + 1):
+    st.subheader(f"Quitinete {i}")
+    nome_default = f"Quitinete {i}"
+    nome = st.text_input(f"Nome do inquilino/ambiente {i}", value=nome_default, key=f"nome_{i}")
+
+    # Se foi importado backup, preencha leitura anterior com o consumo do mês anterior
+    leitura_anterior_default = 0.0
+    if st.session_state.prev_map and nome in st.session_state.prev_map:
+        # O consumo anterior vira leitura anterior do mês atual
+        leitura_anterior_default = float(st.session_state.prev_map[nome])
+
+    leitura_anterior_kwh = st.number_input(f"Leitura anterior (kWh) — {nome}",
+                                           min_value=0.0, value=leitura_anterior_default, step=0.01,
+                                           key=f"leitura_ant_{i}")
+    leitura_atual_kwh = st.number_input(f"Leitura atual (kWh) — {nome}",
+                                        min_value=0.0, value=0.0, step=0.01,
+                                        key=f"leitura_atual_{i}")
+
+    consumo_kwh = max(leitura_atual_kwh - leitura_anterior_kwh, 0.0)
+    quitinetes_data.append({
+        "Quitinete": nome,
+        "Leitura anterior (kWh)": leitura_anterior_kwh,
+        "Leitura atual (kWh)": leitura_atual_kwh,
+        "Consumo (kWh)": consumo_kwh
+    })
+
+df_leituras = pd.DataFrame(quitinetes_data)
+
+st.divider()
+st.subheader("Resumo das leituras")
+st.dataframe(df_leituras, use_container_width=True)
+
+# -------------------------------
+# 📊 Cálculo do rateio
+# -------------------------------
+st.header("Cálculo do rateio")
+
+# Definir consumo total:
+soma_consumos = float(df_leituras["Consumo (kWh)"].sum()) if not df_leituras.empty else 0.0
+if fonte_sel == "Soma das quitinetes" or consumo_total_prédio is None:
+    consumo_total_calc = soma_consumos
+else:
+    consumo_total_calc = float(consumo_total_prédio)
+
+st.write(f"Consumo total considerado: {consumo_total_calc:.2f} kWh")
+
+# Valor a ratear: aqui usamos o total da fatura (inclui COSIP).
+valor_total_ratear = float(total_fatura)
+
+valores_rateio = []
+for _, row in df_leituras.iterrows():
+    parte = 0.0
+    if consumo_total_calc > 0:
+        # Ambos métodos usam rateio proporcional ao consumo. (Se quiser faixas reais, podemos implementar depois.)
+        parte = valor_total_ratear * (row["Consumo (kWh)"] / consumo_total_calc)
+    valores_rateio.append(parte)
+
+df_rateio = pd.DataFrame({
+    "Quitinete": df_leituras["Quitinete"],
+    "Consumo (kWh)": df_leituras["Consumo (kWh)"],
+    "Valor (R$)": [round(v, 2) for v in valores_rateio]
+})
+
+st.subheader("Rateio por quitinete")
+st.dataframe(df_rateio, use_container_width=True)
+
+# -------------------------------
+# 🧾 Resumo consolidado
+# -------------------------------
+st.header("Resumo da fatura e parâmetros")
+df_resumo = pd.DataFrame({
+    "Item": [
+        "Consumo total (kWh)",
+        "Valor base (R$)",
+        "COSIP (R$)",
+        "Total fatura (R$)",
+        "Bandeira por faixa",
+        "Método de rateio",
+        "Fonte do consumo total",
+        "Identificação"
+    ],
+    "Valor": [
+        round(consumo_total_calc, 2),
+        round(valor_base, 2),
+        round(cosip, 2),
+        round(total_fatura, 2),
+        bandeira_sel,
+        metodo_rateio,
+        fonte_sel,
+        identificacao
+    ]
+})
+
+st.dataframe(df_resumo, use_container_width=True)
+
+# -------------------------------
+# 💾 Exportação: Excel com múltiplas abas
+# -------------------------------
+st.header("Exportar backup do mês")
+
+def gerar_excel(rateio_df: pd.DataFrame, resumo_df: pd.DataFrame, identificacao_str: str) -> bytes:
+    # Histórico deste mês (espelha Rateio + colunas de contexto)
+    historico_df = rateio_df.copy()
+    historico_df["Identificação"] = identificacao_str
+    try:
+        consumo_total_val = float(resumo_df.loc[resumo_df["Item"] == "Consumo total (kWh)", "Valor"].values[0])
+    except Exception:
+        consumo_total_val = float(rateio_df["Consumo (kWh)"].sum())
+    try:
+        valor_total_val = float(resumo_df.loc[resumo_df["Item"] == "Total fatura (R$)", "Valor"].values[0])
+    except Exception:
+        valor_total_val = float(sum(rateio_df["Valor (R$)"]))
+    historico_df["Consumo Total"] = round(consumo_total_val, 2)
+    historico_df["Valor Total"] = round(valor_total_val, 2)
+
+    # Buffer em memória
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+        rateio_df.to_excel(writer, sheet_name="Rateio", index=False)
+        resumo_df.to_excel(writer, sheet_name="Resumo", index=False)
+        historico_df.to_excel(writer, sheet_name="Histórico", index=False)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+excel_bytes = gerar_excel(df_rateio, df_resumo, identificacao)
+
+st.download_button(
+    label="💾 Baixar Excel do mês",
+    data=excel_bytes,
+    file_name=f"rateio_{datetime.now().strftime('%m_%Y')}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+# -------------------------------
+# 📂 Importação: aplicar backup do mês anterior
+# -------------------------------
+st.header("Importar backup do mês anterior")
+arquivo = st.file_uploader("Carregue o arquivo Excel gerado anteriormente", type=["xlsx"])
+
+if arquivo is not None:
+    try:
+        xls = pd.ExcelFile(arquivo)
+        resumo_imp = pd.read_excel(xls, sheet_name="Resumo")
+        rateio_imp = pd.read_excel(xls, sheet_name="Rateio")
+
+        # Guardar em sessão para aplicar nos widgets e leituras
+        st.session_state.import_resumo = resumo_imp
+        st.session_state.import_rateio = rateio_imp
+
+        # Mapeia leitura anterior por nome (usando consumo do mês anterior)
+        # A leitura atual daquele mês se torna a leitura anterior deste mês.
+        prev_map = dict(zip(rateio_imp["Quitinete"], rateio_imp["Consumo (kWh)"]))
+        st.session_state.prev_map = prev_map
+
+        st.success("Backup importado! As configurações e leituras anteriores foram aplicadas.")
+        st.write("Resumo importado:")
+        st.dataframe(resumo_imp, use_container_width=True)
+        st.write("Rateio importado (usado como leitura anterior):")
+        st.dataframe(rateio_imp, use_container_width=True)
+
+        st.info("As leituras anteriores dos campos acima foram preenchidas com o consumo do mês importado. Revise os nomes para manter a correspondência.")
+    except Exception as e:
+        st.error(f"Falha ao importar o arquivo. Verifique se ele tem as abas 'Rateio' e 'Resumo'. Detalhes: {e}")
+
+# -------------------------------
+# ℹ️ Orientações discretas no rodapé
+# -------------------------------
+st.markdown("---")
+st.markdown("### ℹ️ Orientações sobre importação e continuidade")
+st.markdown(
+    """
+    <div style='font-size: 14px; color: grey;'>
+    • Ao final de cada mês, clique em <strong>Baixar Excel do mês</strong> para salvar seu backup.<br>
+    • No mês seguinte, use <strong>Importar backup do mês anterior</strong> para recuperar automaticamente:<br>
+    &nbsp;&nbsp;– Bandeira tarifária, método de rateio e fonte do consumo total;<br>
+    &nbsp;&nbsp;– Consumo (kWh) de cada quitinete do mês anterior, que passa a ser sua <em>leitura anterior</em> neste mês.<br><br>
+    Dicas:<br>
+    • Mantenha os nomes das quitinetes consistentes entre os meses para que a importação aplique corretamente as leituras.<br>
+    • Se você preferir, ajuste manualmente qualquer leitura antes de gerar o novo backup.<br>
+    • Cada usuário mantém seu próprio arquivo de backup mensal, sem misturar dados de outras pessoas.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
