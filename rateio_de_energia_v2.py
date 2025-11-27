@@ -294,20 +294,23 @@ else:
 
 import streamlit as st
 
+# -------------------------------
+# CONFIGURAÇÃO INICIAL
+# -------------------------------
 st.set_page_config(page_title="Rateio de Energia", page_icon="💡", layout="wide")
 st.title("💡 Rateio de Energia - Quitinetes")
 
 # -------------------------------
-# BANDEIRA TARIFÁRIA
+# SIDEBAR: BANDEIRA TARIFÁRIA
 # -------------------------------
-st.subheader("🚩 Bandeira tarifária")
-bandeira = st.selectbox(
+st.sidebar.subheader("🚩 Bandeira tarifária")
+bandeira = st.sidebar.selectbox(
     "Selecione a bandeira",
     ["Verde", "Amarela", "Vermelha 1", "Vermelha 2", "Usar bandeira por faixa (como na fatura)"]
 )
 
-# Explicação sobre bandeira
-with st.expander("ℹ️ Entenda as bandeiras tarifárias", expanded=False):
+# Explicação logo abaixo da seleção
+with st.sidebar.expander("ℹ️ Entenda as bandeiras tarifárias", expanded=False):
     st.markdown("""
     As bandeiras tarifárias indicam custos extras na geração de energia:
 
@@ -315,22 +318,41 @@ with st.expander("ℹ️ Entenda as bandeiras tarifárias", expanded=False):
     - **Amarela** → pequeno acréscimo por kWh  
     - **Vermelha 1 e 2** → acréscimos maiores
 
-    Se escolher **por faixa**, aplica-se:
+    Se usar **por faixa**, aplica-se:
     - Até 150 kWh → valor reduzido  
     - Acima de 150 kWh → valor cheio
     """)
 
+# Campos adicionais se bandeira por faixa estiver selecionada
+if bandeira == "Usar bandeira por faixa (como na fatura)":
+    ate_150 = st.sidebar.number_input("Bandeira até 150 kWh (R$/kWh)", min_value=0.0, value=0.054400, step=0.000010, format="%.6f")
+    acima_150 = st.sidebar.number_input("Bandeira acima 150 kWh (R$/kWh)", min_value=0.0, value=0.057660, step=0.000010, format="%.6f")
+
+    with st.sidebar.expander("📊 Como funciona a bandeira por faixa", expanded=False):
+        st.markdown("""
+        A bandeira tarifária pode ser aplicada por **faixa de consumo**, como na fatura:
+
+        - **Até 150 kWh:** usa o valor reduzido  
+        - **Acima de 150 kWh:** usa o valor cheio
+
+        **Exemplo:**
+        - Consumo: 180 kWh  
+        - Resultado da bandeira ≈ R$ 9,89
+
+        💡 Desmarque esta opção se quiser aplicar um único valor por kWh.
+        """)
+
 # -------------------------------
-# MÉTODO DE RATEIO
+# SIDEBAR: MÉTODO DE RATEIO
 # -------------------------------
-st.subheader("🧮 Método de rateio")
-metodo = st.radio(
+st.sidebar.subheader("🧮 Método de rateio")
+metodo = st.sidebar.radio(
     "Escolha o método:",
     ["Faixas individuais", "Proporcional ao total da fatura"]
 )
 
-# Explicação sobre rateio
-with st.expander("ℹ️ Orientação sobre métodos de rateio", expanded=False):
+# Explicação logo abaixo da seleção
+with st.sidebar.expander("ℹ️ Qual método de rateio usar?", expanded=False):
     st.markdown("""
     #### 🔹 Faixas individuais
     Cada unidade é calculada como se tivesse sua própria fatura.
@@ -348,22 +370,37 @@ with st.expander("ℹ️ Orientação sobre métodos de rateio", expanded=False)
     """)
 
 # -------------------------------
-# FONTE DE CONSUMO TOTAL
+# SIDEBAR: FONTE DE CONSUMO TOTAL
 # -------------------------------
-st.subheader("📏 Fonte de consumo total")
-fonte = st.radio(
+st.sidebar.subheader("📏 Fonte de consumo total")
+fonte = st.sidebar.radio(
     "Definir consumo total por:",
     ["Leituras do prédio", "Soma das quitinetes"]
 )
 
-# Explicação sobre fonte de consumo
-with st.expander("ℹ️ Como definir o consumo total", expanded=False):
+# Explicação logo abaixo da seleção
+with st.sidebar.expander("ℹ️ Como definir o consumo total", expanded=False):
     st.markdown("""
     #### 🔹 Leituras do prédio
     Usa o medidor principal → mais preciso.
 
     #### 🔸 Soma das quitinetes
-    Soma os consumos individuais → útil quando não há leitura do prédio.
+    Soma os consumos individuais informados → útil quando não há leitura do prédio.
 
     💡 Dica: se tiver acesso ao medidor principal, prefira essa opção.
     """)
+
+# -------------------------------
+# CONTEÚDO PRINCIPAL
+# -------------------------------
+st.subheader("📊 Resultados e relatórios")
+
+st.write("Aqui você exibe os cálculos, gráficos e rateios conforme as opções escolhidas na barra lateral.")
+
+# Exemplo de placeholder para cálculo
+consumo_total = st.number_input("Consumo total (kWh)", min_value=0.0, value=150.0, step=1.0)
+
+st.write(f"🔌 Consumo total informado: **{consumo_total} kWh**")
+st.write(f"📌 Método de rateio selecionado: **{metodo}**")
+st.write(f"📌 Fonte de consumo total: **{fonte}**")
+st.write(f"📌 Bandeira tarifária: **{bandeira}**")
