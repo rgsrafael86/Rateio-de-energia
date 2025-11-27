@@ -41,7 +41,7 @@ st.sidebar.header("🚩 Bandeira tarifária")
 bandeira_sel = st.sidebar.radio(
     "Selecione a bandeira",
     ["Verde", "Amarela", "Vermelha 1", "Vermelha 2"],
-    index=2,  # seleciona "Vermelha 1" como inicial
+    index=3,  # seleciona "Vermelha 1" como inicial
     key="bandeira_tarifaria",
     help="Seleciona 'Vermelha 1' como estado inicial."
 )
