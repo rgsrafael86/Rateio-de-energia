@@ -322,10 +322,7 @@ with st.expander("📊 Bandeira por faixa (como na fatura)", expanded=False):
     - Consumo é separado em duas partes: até 150 kWh e excedente.
     - Somamos: (até 150 × valor reduzido) + (excedente × valor cheio).
 
-    Exemplo:
-    - Consumo: 180 kWh  
-    - Resultado da bandeira ≈ R$ 9,89
-    """)
+      """)
 
 with st.expander("🧮 Método de rateio", expanded=False):
     st.markdown("""
