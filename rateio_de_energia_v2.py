@@ -291,3 +291,79 @@ if not st.session_state.historico.empty:
         st.success("Histórico apagado com sucesso. Pronto para uma nova simulação.")
 else:
     st.info("Nenhum registro no histórico ainda. Faça um cálculo para começar.")
+
+import streamlit as st
+
+st.set_page_config(page_title="Rateio de Energia", page_icon="💡", layout="wide")
+st.title("💡 Rateio de Energia - Quitinetes")
+
+# -------------------------------
+# BANDEIRA TARIFÁRIA
+# -------------------------------
+st.subheader("🚩 Bandeira tarifária")
+bandeira = st.selectbox(
+    "Selecione a bandeira",
+    ["Verde", "Amarela", "Vermelha 1", "Vermelha 2", "Usar bandeira por faixa (como na fatura)"]
+)
+
+# Explicação sobre bandeira
+with st.expander("ℹ️ Entenda as bandeiras tarifárias", expanded=False):
+    st.markdown("""
+    As bandeiras tarifárias indicam custos extras na geração de energia:
+
+    - **Verde** → sem acréscimo  
+    - **Amarela** → pequeno acréscimo por kWh  
+    - **Vermelha 1 e 2** → acréscimos maiores
+
+    Se escolher **por faixa**, aplica-se:
+    - Até 150 kWh → valor reduzido  
+    - Acima de 150 kWh → valor cheio
+    """)
+
+# -------------------------------
+# MÉTODO DE RATEIO
+# -------------------------------
+st.subheader("🧮 Método de rateio")
+metodo = st.radio(
+    "Escolha o método:",
+    ["Faixas individuais", "Proporcional ao total da fatura"]
+)
+
+# Explicação sobre rateio
+with st.expander("ℹ️ Orientação sobre métodos de rateio", expanded=False):
+    st.markdown("""
+    #### 🔹 Faixas individuais
+    Cada unidade é calculada como se tivesse sua própria fatura.
+
+    - ✅ Mais justo para quem consome pouco  
+    - ⚠️ Pode gerar valores diferentes mesmo com consumos parecidos  
+    - 💡 Ideal quando cada unidade tem medidor próprio
+
+    #### 🔸 Proporcional ao total da fatura
+    O valor total é dividido proporcionalmente ao consumo.
+
+    - ✅ Reflete exatamente a fatura real  
+    - ⚠️ Pode penalizar quem consome pouco  
+    - 💡 Ideal quando há um único medidor
+    """)
+
+# -------------------------------
+# FONTE DE CONSUMO TOTAL
+# -------------------------------
+st.subheader("📏 Fonte de consumo total")
+fonte = st.radio(
+    "Definir consumo total por:",
+    ["Leituras do prédio", "Soma das quitinetes"]
+)
+
+# Explicação sobre fonte de consumo
+with st.expander("ℹ️ Como definir o consumo total", expanded=False):
+    st.markdown("""
+    #### 🔹 Leituras do prédio
+    Usa o medidor principal → mais preciso.
+
+    #### 🔸 Soma das quitinetes
+    Soma os consumos individuais → útil quando não há leitura do prédio.
+
+    💡 Dica: se tiver acesso ao medidor principal, prefira essa opção.
+    """)
