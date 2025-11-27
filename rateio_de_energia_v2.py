@@ -59,7 +59,7 @@ bandeira_por_faixa = {
 st.sidebar.header("📊 Método de rateio")
 # - Faixas individuais: calcula cada unidade como se fosse uma fatura separada
 # - Proporcional: distribui o total da fatura proporcional ao consumo de cada unidade
-metodo_rateio = st.sidebar.radio("Escolha o método:", ["Faixas individuais", "Proporcional ao total da fatura"])
+metodo_rateio = st.sidebar.radio("Escolha o método:", ["Proporcional ao total da fatura", "Faixas individuais"])
 
 st.sidebar.header("📏 Fonte do consumo total")
 # - Leituras do prédio: usa o medidor principal para consumo total
