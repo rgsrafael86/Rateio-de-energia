@@ -123,7 +123,7 @@ def adicionar_historico(nome_simulacao: str, df: pd.DataFrame, valor_total: floa
 
 # ================= INTERFACE PRINCIPAL =================
 
-# ================= LEITURA DO PRÉDIO (MEDIDOR PRINCIPAL) =================
+# ================= LEITURA DO PRÉDIO =================
 st.header("📈 Leituras do prédio")
 
 col1, col2 = st.columns(2)
@@ -141,7 +141,6 @@ with col2:
 consumo_total_predio = max(leitura_predio_atual - leitura_predio_ant, 0)
 st.success(f"Consumo total do prédio: {consumo_total_predio} kWh")
 
-# Armazena em session_state para uso posterior
 st.session_state.leitura_predio_ant = leitura_predio_ant
 st.session_state.leitura_predio_atual = leitura_predio_atual
 st.session_state.consumo_total_prédio = consumo_total_predio
@@ -168,7 +167,7 @@ for i in range(num_quitinetes):
             leitura_ant_default = 0
             if st.session_state.prev_map and nome_individual in st.session_state.prev_map:
                 try:
-                    leitura_ant_default = int(st.session_state.prev_map[nome_individual])
+                    leitura_ant_default = int(float(st.session_state.prev_map[nome_individual]))
                 except (ValueError, TypeError):
                     leitura_ant_default = 0
 
