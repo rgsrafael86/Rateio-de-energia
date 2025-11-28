@@ -305,46 +305,50 @@ if st.session_state.df_resultado is not None:
     for msg in st.session_state.alertas_resultado:
         st.warning(msg)
 
-    # ===================== EXPORTAÇÃO PARA EXCEL =====================
-    # Gera um arquivo Excel com 3 abas: Rateio, Resumo, Histórico
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        # Aba Rateio
-       df_export = st.session_state.df_resultado.copy()
-       df_export.index.name = "Quitinete"
-       df_export.to_excel(writer, sheet_name="Rateio", index=True)
+   # ===================== EXPORTAÇÃO PARA EXCEL =====================
+# Gera um arquivo Excel com 3 abas: Rateio, Resumo, Histórico
+buffer = io.BytesIO()
+with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+    # Aba Rateio (garante nome do índice para importação futura)
+    df_export = st.session_state.df_resultado.copy()
+    df_export.index.name = "Quitinete"
+    df_export.to_excel(writer, sheet_name="Rateio", index=True)
 
-        # Aba Resumo (chave-valor do dicionário de resumo)
-        resumo_dict = st.session_state.resumo_resultado or {}
-        if resumo_dict:
-            resumo = pd.DataFrame({
-                "Item": list(resumo_dict.keys()),
-                "Valor": list(resumo_dict.values())
-            })
-            resumo.to_excel(writer, sheet_name="Resumo", index=False)
+    # Aba Resumo (chave-valor do dicionário de resumo), com validação robusta
+    resumo_dict = st.session_state.get("resumo_resultado") or {}
+    if isinstance(resumo_dict, dict) and resumo_dict:
+        # Converte valores não-serializáveis para string, evitando erros
+        itens = list(resumo_dict.keys())
+        valores = [str(v) if not isinstance(v, (int, float, str)) else v for v in resumo_dict.values()]
+        resumo = pd.DataFrame({"Item": itens, "Valor": valores})
+        resumo.to_excel(writer, sheet_name="Resumo", index=False)
 
-        # Aba Histórico (tudo que foi calculado até agora)
-        if not st.session_state.historico.empty:
-            st.session_state.historico.to_excel(writer, sheet_name="Histórico", index=False)
+    # Aba Histórico (se existir e não estiver vazio)
+    historico_df = st.session_state.get("historico")
+    if isinstance(historico_df, pd.DataFrame) and not historico_df.empty:
+        historico_df.to_excel(writer, sheet_name="Histórico", index=False)
 
-        # Ajuste simples de largura das colunas (para ficar legível ao abrir)
-        for ws in writer.sheets.values():
-            for col in ws.columns:
-                max_length = 0
-                col_letter = get_column_letter(col[0].column)
-                for cell in col:
-                    if cell.value is not None:
-                        max_length = max(max_length, len(str(cell.value)))
-                ws.column_dimensions[col_letter].width = max_length + 2
+    # Ajuste simples de largura das colunas (para ficar legível ao abrir)
+    for ws in writer.sheets.values():
+        for col in ws.columns:
+            max_length = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                if cell.value is not None:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = max_length + 2
 
-    buffer.seek(0)
-    nome_id = (st.session_state.resumo_resultado or {}).get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
-    st.download_button(
-        label="⬇️ Baixar relatório em Excel",
-        data=buffer,
-        file_name=f"rateio_{str(nome_id).replace('/', '-').replace(':', '-')}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+buffer.seek(0)
+
+# Nome do arquivo com fallback seguro
+nome_id_dict = st.session_state.get("resumo_resultado") or {}
+nome_id = nome_id_dict.get("Identificação", datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d-%m-%Y_%H-%M"))
+st.download_button(
+    label="⬇️ Baixar relatório em Excel",
+    data=buffer,
+    file_name=f"rateio_{str(nome_id).replace('/', '-').replace(':', '-')}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 
 # ===================== ABA HISTÓRICO (SIMPLIFICADA) =====================
 st.header("📅 Histórico de Rateios")
