@@ -21,10 +21,6 @@ if "resumo_resultado" not in st.session_state:
     st.session_state.resumo_resultado = None
 if "alertas_resultado" not in st.session_state:
     st.session_state.alertas_resultado = []
-if "prev_map" not in st.session_state:
-    st.session_state.prev_map = {}
-if "import_resumo" not in st.session_state:
-    st.session_state.import_resumo = None
 
 # ===================== SIDEBAR: CONFIGURAÇÕES DE TARIFA =====================
 st.sidebar.header("⚙️ Tarifas Celesc (R$/kWh com tributos)")
@@ -121,77 +117,38 @@ def adicionar_historico(nome_simulacao: str, df: pd.DataFrame, valor_total: floa
     linha["Valor Total"] = valor_total
     st.session_state.historico = pd.concat([st.session_state.historico, linha.reset_index()], ignore_index=True)
 
-# ================= INTERFACE PRINCIPAL =================
-
-# ================= LEITURA DO PRÉDIO =================
-st.header("📈 Leituras do prédio")
-
+# ===================== INTERFACE PRINCIPAL =====================
+# Leituras do prédio (medidor principal)
+st.header("🔢 Leituras do prédio")
 col1, col2 = st.columns(2)
 with col1:
-    leitura_predio_ant = st.number_input(
-        "Leitura anterior do prédio (kWh)",
-        min_value=0, step=1, value=0, key="leitura_predio_ant"
-    )
+    leitura_predio_ant = st.number_input("Leitura anterior do prédio (kWh)", min_value=0, step=1)
 with col2:
-    leitura_predio_atual = st.number_input(
-        "Leitura atual do prédio (kWh)",
-        min_value=0, step=1, value=0, key="leitura_predio_atual"
-    )
+    leitura_predio_at = st.number_input("Leitura atual do prédio (kWh)", min_value=0, step=1)
 
-consumo_total_predio = max(leitura_predio_atual - leitura_predio_ant, 0)
-st.success(f"Consumo total do prédio: {consumo_total_predio} kWh")
+# Identificação da simulação com data/hora local de Blumenau
+hora_local = datetime.now(ZoneInfo("America/Sao_Paulo"))
+nome_simulacao = st.text_input("Identificação da simulação", value=hora_local.strftime("%d/%m/%Y %H:%M"))
 
-st.session_state.leitura_predio_ant = leitura_predio_ant
-st.session_state.leitura_predio_atual = leitura_predio_atual
-st.session_state.consumo_total_prédio = consumo_total_predio
-
-# ================= LEITURAS DAS QUITINETES =================
+# Leituras das quitinetes (cada unidade)
 st.header("🏠 Leituras das quitinetes")
-
-num_quitinetes = st.number_input("Número de quitinetes", min_value=1, step=1, value=1)
-
-moradores_inquilinos = []
-leituras_anteriores = []
-leituras_atuais = []
+n = st.slider("Número de quitinetes", 1, 5, value=1)
 consumos_individuais = []
+nomes_inquilinos = []
 
-for i in range(num_quitinetes):
+for i in range(n):
     with st.expander(f"Quitinete {i+1}", expanded=True):
-        nome_individual = st.text_input(f"Nome do morador {i+1}", key=f"nome_{i}")
-        moradores_inquilinos.append(nome_individual)
+        nome = st.text_input(f"Nome do inquilino Q{i+1}", key=f"nome_{i}")
+        nomes_inquilinos.append(nome.strip() if nome.strip() else f"Q{i+1}")
 
         c1col, c2col = st.columns(2)
-
-        # Leitura anterior com preenchimento automático via prev_map
         with c1col:
-            leitura_ant_default = 0
-            if st.session_state.prev_map and nome_individual in st.session_state.prev_map:
-                try:
-                    leitura_ant_default = int(float(st.session_state.prev_map[nome_individual]))
-                except (ValueError, TypeError):
-                    leitura_ant_default = 0
-
-            ant = st.number_input(
-                "Leitura anterior (kWh)",
-                min_value=0, step=1,
-                value=leitura_ant_default,
-                key=f"ant_{i}"
-            )
-            leituras_anteriores.append(ant)
-
-        # Leitura atual
+            ant = st.number_input("Leitura anterior (kWh)", min_value=0, step=1, key=f"ant_{i}")
         with c2col:
-            at = st.number_input(
-                "Leitura atual (kWh)",
-                min_value=0, step=1,
-                value=0,
-                key=f"at_{i}"
-            )
-            leituras_atuais.append(at)
+            at = st.number_input("Leitura atual (kWh)", min_value=0, step=1, key=f"at_{i}")
 
-        # Cálculo do consumo (nunca negativo)
-        consumo = max(at - ant, 0)
-        consumos_individuais.append(consumo)
+        consumo = max(at - ant, 0)  # nunca deixa negativo
+        consumos_individuais.append(float(consumo))
 
 # ===================== CÁLCULO (AO CLICAR) =====================
 if st.button("Calcular"):
@@ -340,38 +297,7 @@ if not st.session_state.historico.empty:
         st.success("Histórico apagado com sucesso. Pronto para uma nova simulação.")
 else:
     st.info("Nenhum registro no histórico ainda. Faça um cálculo para começar.")
-    
-# ===================== ABA MÊS ANTERIOR (IMPORTAÇÃO) =====================
-st.header("📂 Mês anterior (importar backup)")
-arquivo = st.file_uploader("Carregue o arquivo Excel do mês anterior", type=["xlsx"])
 
-if arquivo is not None:
-    try:
-        xls = pd.ExcelFile(arquivo)
-        resumo_imp = pd.read_excel(xls, sheet_name="Resumo")
-        rateio_imp = pd.read_excel(xls, sheet_name="Rateio")
-
-        st.session_state.import_resumo = resumo_imp
-        st.session_state.prev_map = dict(zip(rateio_imp["Quitinete"], rateio_imp["Consumo (kWh)"]))
-
-        def get_item(item):
-            ser = resumo_imp.loc[resumo_imp["Item"] == item, "Valor"]
-            return ser.values[0] if len(ser.values) else None
-
-        st.session_state.bandeira_tarifaria = get_item("Bandeira por faixa") or "Vermelha 1"
-        st.session_state.metodo_rateio = get_item("Método de rateio") or "Proporcional ao total da fatura"
-        st.session_state.fonte_consumo = get_item("Fonte do consumo total") or "Leituras do prédio"
-        st.session_state.leitura_predio_ant = get_item("Consumo total (kWh)") or 0.0
-
-        st.success("Backup importado! Configurações e leituras anteriores aplicadas automaticamente.")
-        st.write("Resumo do mês anterior:")
-        st.dataframe(resumo_imp)
-        st.write("Rateio do mês anterior (usado como leitura anterior):")
-        st.dataframe(rateio_imp)
-
-    except Exception as e:
-        st.error(f"Erro ao importar backup: {e}")
-        
 # -------------------------------
 # EXPLICAÇÕES DISCRETAS (FIM DA PÁGINA)
 # -------------------------------
@@ -426,15 +352,6 @@ with st.expander("📏 Fonte de consumo total", expanded=False):
     **Soma das quitinetes**
     - Soma os consumos individuais informados.
     - Útil quando não há leitura do prédio ou ela está indisponível.
-    """)
-with st.expander("📂 Importação do mês anterior", expanded=False):
-    st.markdown("""
-    • Ao final de cada mês, baixe o relatório em Excel.  
-    • No mês seguinte, importe esse arquivo na aba **Mês anterior**.  
-    • O sistema vai recuperar automaticamente:  
-      – Bandeira tarifária, método de rateio e fonte do consumo total  
-      – Consumo (kWh) de cada quitinete do mês anterior, que passa a ser a **leitura anterior** deste mês.  
-    • Mantenha os nomes das quitinetes consistentes entre os meses para que a importação funcione corretamente.
     """)
 
 st.caption("Estas explicações são referenciais e não substituem as regras oficiais da concessionária.")
