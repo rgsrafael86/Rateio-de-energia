@@ -88,8 +88,8 @@ if arquivo is not None:
         st.dataframe(rateio_imp)
 
     except Exception as e:
-        st.error(f"Erro ao importar backup: {e}")
-
+        st.error("Erro ao importar backup. Verifique se a planilha está correta.")
+        st.write(e)
 # ===================== CORREÇÃO: aplicar valores do backup com segurança =====================
 # Listas de opções válidas
 opcoes_bandeira = ["Verde", "Amarela", "Vermelha 1", "Vermelha 2"]
