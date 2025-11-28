@@ -71,15 +71,16 @@ if arquivo is not None:
             except Exception:
                 return None
 
-        # Aplicar valores do resumo com segurança (não quebra a sidebar)
-        def aplicar_valor_seguro(chave, valor, lista_opcoes):
-            if valor in lista_opcoes:
-                st.session_state[chave] = valor
+        # Aplica valores do backup com segurança
+        def aplicar_valor_seguro(chave_session, valor, opcoes_validas):
+            if valor in opcoes_validas:
+                st.session_state[chave_session] = valor
 
         aplicar_valor_seguro("bandeira_tarifaria", get_item("Bandeira por faixa"), ["Verde", "Amarela", "Vermelha 1", "Vermelha 2"])
         aplicar_valor_seguro("metodo_rateio", get_item("Método de rateio"), ["Proporcional ao total da fatura", "Faixas individuais"])
         aplicar_valor_seguro("fonte_consumo", get_item("Fonte do consumo total"), ["Leituras do prédio", "Soma das quitinetes"])
 
+        # Mensagens de sucesso
         st.success("Backup importado! Leituras anteriores e configurações foram aplicadas quando possível.")
         st.write("Resumo do mês anterior:")
         st.dataframe(resumo_imp)
@@ -89,40 +90,6 @@ if arquivo is not None:
     except Exception as e:
         st.error("Erro ao importar backup. Verifique se a planilha está correta.")
         st.write(e)
-# (este bloco deve estar DENTRO do try principal da importação, antes do except)
-
-# Função utilitária para pegar valor da aba Resumo por chave "Item"
-def get_item(item):
-    try:
-        ser = resumo_imp.loc[resumo_imp["Item"] == item, "Valor"]
-        return ser.values[0] if len(ser.values) else None
-    except Exception:
-        return None
-
-# Listas de opções válidas (compatíveis com a sidebar)
-opcoes_bandeira = ["Verde", "Amarela", "Vermelha 1", "Vermelha 2"]
-opcoes_modo = ["Proporcional ao total da fatura", "Faixas individuais"]
-opcoes_fonte = ["Leituras do prédio", "Soma das quitinetes"]
-# Se você realmente usa "Tarifa Branca", inclua; caso contrário, remova
-opcoes_tarifa = ["Convencional", "Branca"]
-
-# Aplica um valor do backup somente se for reconhecido
-def aplicar_valor_seguro(chave_session, valor, opcoes_validas):
-    if valor in opcoes_validas:
-        st.session_state[chave_session] = valor
-
-# Aplica valores do backup extraídos da aba Resumo
-aplicar_valor_seguro("bandeira_tarifaria", get_item("Bandeira por faixa"), opcoes_bandeira)
-aplicar_valor_seguro("metodo_rateio", get_item("Método de rateio"), opcoes_modo)
-aplicar_valor_seguro("fonte_consumo", get_item("Fonte do consumo total"), opcoes_fonte)
-# Se houver chave de tarifa no seu Resumo, aplique também (opcional):
-aplicar_valor_seguro("tarifa", get_item("Tarifa"), opcoes_tarifa)
-
-st.success("Backup importado! Leituras anteriores e configurações foram aplicadas quando possível.")
-st.write("Resumo do backup importado:")
-st.dataframe(resumo_imp)
-st.write("Rateio do mês anterior (usado como leitura anterior):")
-st.dataframe(rateio_imp)
 # ===================== SIDEBAR: CONFIGURAÇÕES DE TARIFA =====================
 st.sidebar.header("⚙️ Tarifas Celesc (R$/kWh com tributos)")
 # TE: Tarifa de Energia | TUSD: Tarifa de Uso do Sistema de Distribuição
