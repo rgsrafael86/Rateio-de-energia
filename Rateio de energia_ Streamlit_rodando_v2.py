@@ -128,24 +128,28 @@ st.header("📈 Leituras do prédio")
 
 col1, col2 = st.columns(2)
 with col1:
-    leitura_predio_ant = st.number_input("Leitura anterior do prédio (kWh)", min_value=0, step=1, format="%.2f")
+    leitura_predio_ant = st.number_input(
+        "Leitura anterior do prédio (kWh)",
+        min_value=0, step=1, value=0, key="leitura_predio_ant"
+    )
 with col2:
-    leitura_predio_atual = st.number_input("Leitura atual do prédio (kWh)", min_value=0, step=1, format="%.2f")
+    leitura_predio_atual = st.number_input(
+        "Leitura atual do prédio (kWh)",
+        min_value=0, step=1, value=0, key="leitura_predio_atual"
+    )
 
-# Cálculo do consumo total do prédio
-consumo_total_predio = max(leitura_predio_atual - leitura_predio_ant, 0.0)
-st.success(f"Consumo total do prédio: {consumo_total_predio:.2f} kWh")
+consumo_total_predio = max(leitura_predio_atual - leitura_predio_ant, 0)
+st.success(f"Consumo total do prédio: {consumo_total_predio} kWh")
 
 # Armazena em session_state para uso posterior
 st.session_state.leitura_predio_ant = leitura_predio_ant
 st.session_state.leitura_predio_atual = leitura_predio_atual
 st.session_state.consumo_total_prédio = consumo_total_predio
 
+# ================= LEITURAS DAS QUITINETES =================
 st.header("🏠 Leituras das quitinetes")
 
-col1, col2 = st.columns(2)
-with col1:
-    num_quitinetes = st.number_input("Número de quitinetes", min_value=1, step=1)
+num_quitinetes = st.number_input("Número de quitinetes", min_value=1, step=1, value=1)
 
 moradores_inquilinos = []
 leituras_anteriores = []
@@ -161,16 +165,16 @@ for i in range(num_quitinetes):
 
         # Leitura anterior com preenchimento automático via prev_map
         with c1col:
-            leitura_ant_default = 0.0
+            leitura_ant_default = 0
             if st.session_state.prev_map and nome_individual in st.session_state.prev_map:
                 try:
-                    leitura_ant_default = float(st.session_state.prev_map[nome_individual])
+                    leitura_ant_default = int(st.session_state.prev_map[nome_individual])
                 except (ValueError, TypeError):
-                    leitura_ant_default = 0.0
+                    leitura_ant_default = 0
 
             ant = st.number_input(
                 "Leitura anterior (kWh)",
-                min_value=0.0, step=1.0,
+                min_value=0, step=1,
                 value=leitura_ant_default,
                 key=f"ant_{i}"
             )
@@ -180,14 +184,16 @@ for i in range(num_quitinetes):
         with c2col:
             at = st.number_input(
                 "Leitura atual (kWh)",
-                min_value=0.0, step=1.0,
+                min_value=0, step=1,
+                value=0,
                 key=f"at_{i}"
             )
             leituras_atuais.append(at)
 
-        # Cálculo do consumo
-        consumo = max(at - ant, 0.0)
+        # Cálculo do consumo (nunca negativo)
+        consumo = max(at - ant, 0)
         consumos_individuais.append(consumo)
+
 # ===================== CÁLCULO (AO CLICAR) =====================
 if st.button("Calcular"):
     # Determina consumo total conforme fonte
