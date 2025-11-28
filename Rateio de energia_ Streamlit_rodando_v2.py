@@ -28,34 +28,24 @@ if "import_resumo" not in st.session_state:
     st.session_state.import_resumo = None
 
 # ===================== IMPORTAÇÃO DO MÊS ANTERIOR =====================
-st.header("📁 Mês anterior (importar backup)")
+st.header("📅 Mês anterior (importar backup)")
 arquivo = st.file_uploader("Carregue a planilha Excel do mês anterior", type=["xlsx"])
 
 if arquivo is not None:
-   try:
-    xls = pd.ExcelFile(arquivo)
-    resumo_imp = pd.read_excel(xls, sheet_name="Resumo")
     try:
-        rateio_imp = pd.read_excel(xls, sheet_name="Rateio")
-    except Exception:
-        abas = xls.sheet_names
-        rateio_imp = pd.read_excel(xls, sheet_name=abas[0]) if abas else pd.DataFrame()
+        xls = pd.ExcelFile(arquivo)
 
-    # ... restante da lógica de importação ...
+        # Lê aba Resumo
+        resumo_imp = pd.read_excel(xls, sheet_name="Resumo")
 
-    st.session_state.import_resumo = resumo_imp
+        # Lê aba Rateio (ou primeira aba se não existir)
+        try:
+            rateio_imp = pd.read_excel(xls, sheet_name="Rateio")
+        except Exception:
+            abas = xls.sheet_names
+            rateio_imp = pd.read_excel(xls, sheet_name=abas[0]) if abas else pd.DataFrame()
 
-    # Aplicação segura dos valores do resumo
-    # (aqui entra a correção que te passei antes)
-
-    st.success("Backup importado! Leituras anteriores e configurações foram aplicadas quando possível.")
-    st.dataframe(resumo_imp)
-    st.dataframe(rateio_imp)
-
-except Exception as e:
-    st.error(f"Erro ao importar backup: {e}")
-        # Mapa de leitura anterior: Quitinete -> Consumo (kWh)
-        # Primeiro tenta nome exato; se não, busca aproximações
+        # Mapeamento das leituras anteriores
         col_quitinete = None
         col_consumo = None
         for col in rateio_imp.columns:
@@ -70,16 +60,35 @@ except Exception as e:
         else:
             st.warning("Planilha 'Rateio' não contém colunas reconhecíveis de unidade e consumo. Importação parcial aplicada.")
 
-    # Guarda o resumo importado (para referência)
-st.session_state.import_resumo = resumo_imp
+        # Guarda o resumo importado
+        st.session_state.import_resumo = resumo_imp
 
-# Função utilitária para pegar valores do Resumo (chave-valor)
-def get_item(item):
-    try:
-        ser = resumo_imp.loc[resumo_imp["Item"] == item, "Valor"]
-        return ser.values[0] if len(ser.values) else None
-    except Exception:
-        return None
+        # Função para extrair valores do resumo
+        def get_item(item):
+            try:
+                ser = resumo_imp.loc[resumo_imp["Item"] == item, "Valor"]
+                return ser.values[0] if len(ser.values) else None
+            except Exception:
+                return None
+
+        # Correção: aplicar valores do resumo com segurança
+        def aplicar_valor_seguro(chave, valor, lista_opcoes):
+            if valor in lista_opcoes:
+                st.session_state[chave] = valor
+
+        aplicar_valor_seguro("bandeira_tarifaria", get_item("Bandeira por faixa"), ["Verde", "Amarela", "Vermelha 1", "Vermelha 2"])
+        aplicar_valor_seguro("metodo_rateio", get_item("Método de rateio"), ["Proporcional ao total da fatura", "Faixas individuais"])
+        aplicar_valor_seguro("fonte_consumo", get_item("Fonte do consumo total"), ["Leituras do prédio", "Soma das quitinetes"])
+
+        # Mensagens de sucesso
+        st.success("Backup importado! Leituras anteriores e configurações foram aplicadas quando possível.")
+        st.write("Resumo do mês anterior:")
+        st.dataframe(resumo_imp)
+        st.write("Rateio do mês anterior (usado como leitura anterior):")
+        st.dataframe(rateio_imp)
+
+    except Exception as e:
+        st.error(f"Erro ao importar backup: {e}")
 
 # ===================== CORREÇÃO: aplicar valores do backup com segurança =====================
 # Listas de opções válidas
