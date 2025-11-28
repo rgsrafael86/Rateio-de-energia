@@ -122,6 +122,25 @@ def adicionar_historico(nome_simulacao: str, df: pd.DataFrame, valor_total: floa
     st.session_state.historico = pd.concat([st.session_state.historico, linha.reset_index()], ignore_index=True)
 
 # ================= INTERFACE PRINCIPAL =================
+
+# ================= LEITURA DO PRÉDIO (MEDIDOR PRINCIPAL) =================
+st.header("📈 Leituras do prédio")
+
+col1, col2 = st.columns(2)
+with col1:
+    leitura_predio_ant = st.number_input("Leitura anterior do prédio (kWh)", min_value=0.0, step=1.0, format="%.2f")
+with col2:
+    leitura_predio_atual = st.number_input("Leitura atual do prédio (kWh)", min_value=0.0, step=1.0, format="%.2f")
+
+# Cálculo do consumo total do prédio
+consumo_total_predio = max(leitura_predio_atual - leitura_predio_ant, 0.0)
+st.success(f"Consumo total do prédio: {consumo_total_predio:.2f} kWh")
+
+# Armazena em session_state para uso posterior
+st.session_state.leitura_predio_ant = leitura_predio_ant
+st.session_state.leitura_predio_atual = leitura_predio_atual
+st.session_state.consumo_total_prédio = consumo_total_predio
+
 st.header("🏠 Leituras das quitinetes")
 
 col1, col2 = st.columns(2)
