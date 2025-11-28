@@ -121,42 +121,54 @@ def adicionar_historico(nome_simulacao: str, df: pd.DataFrame, valor_total: floa
     linha["Valor Total"] = valor_total
     st.session_state.historico = pd.concat([st.session_state.historico, linha.reset_index()], ignore_index=True)
 
-# ===================== INTERFACE PRINCIPAL =====================
-# Leituras do prédio (medidor principal)
-st.header("🔢 Leituras do prédio")
+# ================= INTERFACE PRINCIPAL =================
+st.header("🏠 Leituras das quitinetes")
+
 col1, col2 = st.columns(2)
 with col1:
-    leitura_predio_ant = st.number_input("Leitura anterior do prédio (kWh)", min_value=0, step=1)
-with col2:
-    leitura_predio_at = st.number_input("Leitura atual do prédio (kWh)", min_value=0, step=1)
+    num_quitinetes = st.number_input("Número de quitinetes", min_value=1, step=1)
 
-# Identificação da simulação com data/hora local de Blumenau
-hora_local = datetime.now(ZoneInfo("America/Sao_Paulo"))
-nome_simulacao = st.text_input("Identificação da simulação", value=hora_local.strftime("%d/%m/%Y %H:%M"))
-
-# Leituras das quitinetes (cada unidade)
-st.header("🏠 Leituras das quitinetes")
-n = st.slider("Número de quitinetes", 1, 5, value=1)
+moradores_inquilinos = []
+leituras_anteriores = []
+leituras_atuais = []
 consumos_individuais = []
-nomes_inquilinos = []
 
-for i in range(n):
+for i in range(num_quitinetes):
     with st.expander(f"Quitinete {i+1}", expanded=True):
-        nome = st.text_input(f"Nome do inquilino Q{i+1}", key=f"nome_{i}")
-        nomes_inquilinos.append(nome.strip() if nome.strip() else f"Q{i+1}")
+        nome_individual = st.text_input(f"Nome do morador {i+1}", key=f"nome_{i}")
+        moradores_inquilinos.append(nome_individual)
 
         c1col, c2col = st.columns(2)
+
+        # Leitura anterior com preenchimento automático via prev_map
         with c1col:
-           leitura_ant_default = 0
-if st.session_state.prev_map and nomes_inquilinos[i] in st.session_state.prev_map:
-    leitura_ant_default = float(st.session_state.prev_map[nomes_inquilinos[i]])
-ant = st.number_input("Leitura anterior (kWh)", min_value=0, step=1, value=leitura_ant_default, key=f"ant_{i}")
+            leitura_ant_default = 0.0
+            if st.session_state.prev_map and nome_individual in st.session_state.prev_map:
+                try:
+                    leitura_ant_default = float(st.session_state.prev_map[nome_individual])
+                except (ValueError, TypeError):
+                    leitura_ant_default = 0.0
+
+            ant = st.number_input(
+                "Leitura anterior (kWh)",
+                min_value=0.0, step=1.0,
+                value=leitura_ant_default,
+                key=f"ant_{i}"
+            )
+            leituras_anteriores.append(ant)
+
+        # Leitura atual
         with c2col:
-            at = st.number_input("Leitura atual (kWh)", min_value=0, step=1, key=f"at_{i}")
+            at = st.number_input(
+                "Leitura atual (kWh)",
+                min_value=0.0, step=1.0,
+                key=f"at_{i}"
+            )
+            leituras_atuais.append(at)
 
-        consumo = max(at - ant, 0)  # nunca deixa negativo
-        consumos_individuais.append(float(consumo))
-
+        # Cálculo do consumo
+        consumo = max(at - ant, 0.0)
+        consumos_individuais.append(consumo)
 # ===================== CÁLCULO (AO CLICAR) =====================
 if st.button("Calcular"):
     # Determina consumo total conforme fonte
