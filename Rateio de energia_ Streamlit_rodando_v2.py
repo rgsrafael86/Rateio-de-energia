@@ -310,7 +310,9 @@ if st.session_state.df_resultado is not None:
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         # Aba Rateio
-        st.session_state.df_resultado.to_excel(writer, sheet_name="Rateio", index=True)
+       df_export = st.session_state.df_resultado.copy()
+       df_export.index.name = "Quitinete"
+       df_export.to_excel(writer, sheet_name="Rateio", index=True)
 
         # Aba Resumo (chave-valor do dicionário de resumo)
         resumo_dict = st.session_state.resumo_resultado or {}
