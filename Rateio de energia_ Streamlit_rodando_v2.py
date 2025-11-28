@@ -71,7 +71,7 @@ if arquivo is not None:
             except Exception:
                 return None
 
-        # Correção: aplicar valores do resumo com segurança
+        # Aplicar valores do resumo com segurança (não quebra a sidebar)
         def aplicar_valor_seguro(chave, valor, lista_opcoes):
             if valor in lista_opcoes:
                 st.session_state[chave] = valor
@@ -80,7 +80,6 @@ if arquivo is not None:
         aplicar_valor_seguro("metodo_rateio", get_item("Método de rateio"), ["Proporcional ao total da fatura", "Faixas individuais"])
         aplicar_valor_seguro("fonte_consumo", get_item("Fonte do consumo total"), ["Leituras do prédio", "Soma das quitinetes"])
 
-        # Mensagens de sucesso
         st.success("Backup importado! Leituras anteriores e configurações foram aplicadas quando possível.")
         st.write("Resumo do mês anterior:")
         st.dataframe(resumo_imp)
