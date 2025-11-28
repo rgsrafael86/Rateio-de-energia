@@ -141,4 +141,4 @@ for i in range(n):
             leitura_ant_default = 0
             if st.session_state.prev_map and nomes_inquilinos[i] in st.session_state.prev_map:
                 try:
-                    leitura_ant_default = int(float(st.session_state.prev_map[nomes_inquil
+                   leitura_ant_default = int(float(st.session_state.prev_map[nomes_inquilinos[i]]))
