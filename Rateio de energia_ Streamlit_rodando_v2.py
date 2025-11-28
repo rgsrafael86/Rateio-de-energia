@@ -128,9 +128,9 @@ st.header("📈 Leituras do prédio")
 
 col1, col2 = st.columns(2)
 with col1:
-    leitura_predio_ant = st.number_input("Leitura anterior do prédio (kWh)", min_value=0.0, step=1.0, format="%.2f")
+    leitura_predio_ant = st.number_input("Leitura anterior do prédio (kWh)", min_value=0, step=1, format="%.2f")
 with col2:
-    leitura_predio_atual = st.number_input("Leitura atual do prédio (kWh)", min_value=0.0, step=1.0, format="%.2f")
+    leitura_predio_atual = st.number_input("Leitura atual do prédio (kWh)", min_value=0, step=1, format="%.2f")
 
 # Cálculo do consumo total do prédio
 consumo_total_predio = max(leitura_predio_atual - leitura_predio_ant, 0.0)
