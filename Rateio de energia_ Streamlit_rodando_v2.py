@@ -32,18 +32,28 @@ st.header("📁 Mês anterior (importar backup)")
 arquivo = st.file_uploader("Carregue a planilha Excel do mês anterior", type=["xlsx"])
 
 if arquivo is not None:
+   try:
+    xls = pd.ExcelFile(arquivo)
+    resumo_imp = pd.read_excel(xls, sheet_name="Resumo")
     try:
-        xls = pd.ExcelFile(arquivo)
-        # Lê abas principais
-        resumo_imp = pd.read_excel(xls, sheet_name="Resumo")
-        # Prioriza a aba "Rateio"; se não houver, tenta outras comuns
-        try:
-            rateio_imp = pd.read_excel(xls, sheet_name="Rateio")
-        except Exception:
-            # Fallback: tenta primeira aba
-            abas = xls.sheet_names
-            rateio_imp = pd.read_excel(xls, sheet_name=abas[0]) if abas else pd.DataFrame()
+        rateio_imp = pd.read_excel(xls, sheet_name="Rateio")
+    except Exception:
+        abas = xls.sheet_names
+        rateio_imp = pd.read_excel(xls, sheet_name=abas[0]) if abas else pd.DataFrame()
 
+    # ... restante da lógica de importação ...
+
+    st.session_state.import_resumo = resumo_imp
+
+    # Aplicação segura dos valores do resumo
+    # (aqui entra a correção que te passei antes)
+
+    st.success("Backup importado! Leituras anteriores e configurações foram aplicadas quando possível.")
+    st.dataframe(resumo_imp)
+    st.dataframe(rateio_imp)
+
+except Exception as e:
+    st.error(f"Erro ao importar backup: {e}")
         # Mapa de leitura anterior: Quitinete -> Consumo (kWh)
         # Primeiro tenta nome exato; se não, busca aproximações
         col_quitinete = None
