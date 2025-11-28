@@ -28,20 +28,37 @@ if "import_resumo" not in st.session_state:
     st.session_state.import_resumo = None
 
 # ===================== IMPORTAÇÃO DO MÊS ANTERIOR =====================
-st.header("📂 Mês anterior (importar backup)")
-arquivo = st.file_uploader("Carregue o arquivo Excel do mês anterior", type=["xlsx"])
+st.header("📁 Mês anterior (importar backup)")
+arquivo = st.file_uploader("Carregue a planilha Excel do mês anterior", type=["xlsx"])
 
 if arquivo is not None:
     try:
         xls = pd.ExcelFile(arquivo)
+        # Lê abas principais
         resumo_imp = pd.read_excel(xls, sheet_name="Resumo")
-        rateio_imp = pd.read_excel(xls, sheet_name="Rateio")
+        # Prioriza a aba "Rateio"; se não houver, tenta outras comuns
+        try:
+            rateio_imp = pd.read_excel(xls, sheet_name="Rateio")
+        except Exception:
+            # Fallback: tenta primeira aba
+            abas = xls.sheet_names
+            rateio_imp = pd.read_excel(xls, sheet_name=abas[0]) if abas else pd.DataFrame()
 
-        # Mapa: Quitinete -> Consumo (kWh) do mês anterior (vira leitura anterior)
-        if "Quitinete" in rateio_imp.columns and "Consumo (kWh)" in rateio_imp.columns:
-            st.session_state.prev_map = dict(zip(rateio_imp["Quitinete"], rateio_imp["Consumo (kWh)"]))
+        # Mapa de leitura anterior: Quitinete -> Consumo (kWh)
+        # Primeiro tenta nome exato; se não, busca aproximações
+        col_quitinete = None
+        col_consumo = None
+        for col in rateio_imp.columns:
+            lc = str(col).strip().lower()
+            if col_quitinete is None and ("quitinete" in lc or "unidade" in lc):
+                col_quitinete = col
+            if col_consumo is None and ("consumo" in lc or "kwh" in lc or "quilowatts" in lc or "kw" in lc):
+                col_consumo = col
+
+        if col_quitinete and col_consumo:
+            st.session_state.prev_map = dict(zip(rateio_imp[col_quitinete], rateio_imp[col_consumo]))
         else:
-            st.warning("Planilha 'Rateio' não contém colunas 'Quitinete' e 'Consumo (kWh)'. Importação parcial aplicada.")
+            st.warning("Planilha 'Rateio' não contém colunas reconhecíveis de unidade e consumo. Importação parcial aplicada.")
 
         # Guarda o resumo importado (para referência)
         st.session_state.import_resumo = resumo_imp
@@ -54,13 +71,10 @@ if arquivo is not None:
             except Exception:
                 return None
 
-        # Aplica algumas configurações úteis (sem forçar a interface)
+        # Ajustes de estado (sem forçar UI)
         st.session_state.bandeira_tarifaria = get_item("Bandeira por faixa") or st.session_state.get("bandeira_tarifaria", "Vermelha 1")
         st.session_state.metodo_rateio = get_item("Método de rateio") or "Proporcional ao total da fatura"
         st.session_state.fonte_consumo = get_item("Fonte do consumo total") or "Leituras do prédio"
-
-        # Opcional: consumo total do mês anterior (apenas referência)
-        st.session_state.leitura_predio_ant = get_item("Consumo total (kWh)") or 0
 
         st.success("Backup importado! Leituras anteriores e configurações foram aplicadas quando possível.")
         st.write("Resumo do mês anterior:")
@@ -91,8 +105,7 @@ bandeira_sel = st.sidebar.radio(
     "Selecione a bandeira",
     ["Verde", "Amarela", "Vermelha 1", "Vermelha 2"],
     index=2,  # seleciona "Vermelha 1" como inicial
-    key="bandeira_tarifaria",
-    help="Selecionado 'Vermelha 1' como estado inicial."
+    key="bandeira_tarifaria"
 )
 usar_bandeira_por_faixa = st.sidebar.checkbox("Usar bandeira por faixa (como na fatura)", value=True)
 
@@ -305,50 +318,62 @@ if st.session_state.df_resultado is not None:
     for msg in st.session_state.alertas_resultado:
         st.warning(msg)
 
-   # ===================== EXPORTAÇÃO PARA EXCEL =====================
-# Gera um arquivo Excel com 3 abas: Rateio, Resumo, Histórico
-buffer = io.BytesIO()
-with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-    # Aba Rateio (garante nome do índice para importação futura)
-    df_export = st.session_state.df_resultado.copy()
-    df_export.index.name = "Quitinete"
-    df_export.to_excel(writer, sheet_name="Rateio", index=True)
+    # ===================== EXPORTAÇÃO PARA EXCEL =====================
+    # Gera um arquivo Excel com 3 abas: Rateio, Resumo, Histórico
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        wrote_any_sheet = False
 
-    # Aba Resumo (chave-valor do dicionário de resumo), com validação robusta
-    resumo_dict = st.session_state.get("resumo_resultado") or {}
-    if isinstance(resumo_dict, dict) and resumo_dict:
-        # Converte valores não-serializáveis para string, evitando erros
-        itens = list(resumo_dict.keys())
-        valores = [str(v) if not isinstance(v, (int, float, str)) else v for v in resumo_dict.values()]
-        resumo = pd.DataFrame({"Item": itens, "Valor": valores})
-        resumo.to_excel(writer, sheet_name="Resumo", index=False)
+        # Aba Rateio (sempre cria, ainda que vazia)
+        df_export = st.session_state.df_resultado.copy()
+        df_export.index.name = "Quitinete"
+        try:
+            df_export.to_excel(writer, sheet_name="Rateio", index=True)
+            wrote_any_sheet = True
+        except Exception:
+            # Se por algum motivo df_resultado falhar, cria uma aba mínima
+            pd.DataFrame({"Quitinete": [], "Consumo (kWh)": [], "Valor (R$)": []}).to_excel(
+                writer, sheet_name="Rateio", index=False
+            )
+            wrote_any_sheet = True
 
-    # Aba Histórico (se existir e não estiver vazio)
-    historico_df = st.session_state.get("historico")
-    if isinstance(historico_df, pd.DataFrame) and not historico_df.empty:
-        historico_df.to_excel(writer, sheet_name="Histórico", index=False)
+        # Aba Resumo (chave-valor do dicionário de resumo), com validação robusta
+        resumo_dict = st.session_state.get("resumo_resultado") or {}
+        if isinstance(resumo_dict, dict) and resumo_dict:
+            itens = list(resumo_dict.keys())
+            valores = [str(v) if not isinstance(v, (int, float, str)) else v for v in resumo_dict.values()]
+            resumo = pd.DataFrame({"Item": itens, "Valor": valores})
+            resumo.to_excel(writer, sheet_name="Resumo", index=False)
+            wrote_any_sheet = True
 
-    # Ajuste simples de largura das colunas (para ficar legível ao abrir)
-    for ws in writer.sheets.values():
-        for col in ws.columns:
-            max_length = 0
-            col_letter = get_column_letter(col[0].column)
-            for cell in col:
-                if cell.value is not None:
-                    max_length = max(max_length, len(str(cell.value)))
-            ws.column_dimensions[col_letter].width = max_length + 2
+        # Aba Histórico (se existir e não estiver vazio)
+        historico_df = st.session_state.get("historico")
+        if isinstance(historico_df, pd.DataFrame) and not historico_df.empty:
+            historico_df.to_excel(writer, sheet_name="Histórico", index=False)
+            wrote_any_sheet = True
 
-buffer.seek(0)
+        # Se nenhuma aba foi escrita por algum motivo, garanta ao menos uma visível
+        if not wrote_any_sheet:
+            pd.DataFrame({"Info": ["Sem dados para exportar"]}).to_excel(writer, sheet_name="Resumo", index=False)
 
-# Nome do arquivo com fallback seguro
-nome_id_dict = st.session_state.get("resumo_resultado") or {}
-nome_id = nome_id_dict.get("Identificação", datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d-%m-%Y_%H-%M"))
-st.download_button(
-    label="⬇️ Baixar relatório em Excel",
-    data=buffer,
-    file_name=f"rateio_{str(nome_id).replace('/', '-').replace(':', '-')}.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+        # Ajuste simples de largura das colunas (para ficar legível ao abrir)
+        for ws in writer.sheets.values():
+            for col in ws.columns:
+                max_length = 0
+                col_letter = get_column_letter(col[0].column)
+                for cell in col:
+                    if cell.value is not None:
+                        max_length = max(max_length, len(str(cell.value)))
+                ws.column_dimensions[col_letter].width = max_length + 2
+
+    buffer.seek(0)
+    nome_id = (st.session_state.resumo_resultado or {}).get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
+    st.download_button(
+        label="⬇️ Baixar relatório em Excel",
+        data=buffer,
+        file_name=f"rateio_{str(nome_id).replace('/', '-').replace(':', '-')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 # ===================== ABA HISTÓRICO (SIMPLIFICADA) =====================
 st.header("📅 Histórico de Rateios")
