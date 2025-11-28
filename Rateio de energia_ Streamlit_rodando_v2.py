@@ -60,27 +60,39 @@ if arquivo is not None:
         else:
             st.warning("Planilha 'Rateio' não contém colunas reconhecíveis de unidade e consumo. Importação parcial aplicada.")
 
-        # Guarda o resumo importado (para referência)
-        st.session_state.import_resumo = resumo_imp
+    # Guarda o resumo importado (para referência)
+st.session_state.import_resumo = resumo_imp
 
-        # Função utilitária para pegar valores do Resumo (chave-valor)
-        def get_item(item):
-            try:
-                ser = resumo_imp.loc[resumo_imp["Item"] == item, "Valor"]
-                return ser.values[0] if len(ser.values) else None
-            except Exception:
-                return None
+# Função utilitária para pegar valores do Resumo (chave-valor)
+def get_item(item):
+    try:
+        ser = resumo_imp.loc[resumo_imp["Item"] == item, "Valor"]
+        return ser.values[0] if len(ser.values) else None
+    except Exception:
+        return None
 
-        # Ajustes de estado (sem forçar UI)
-        st.session_state.bandeira_tarifaria = get_item("Bandeira por faixa") or st.session_state.get("bandeira_tarifaria", "Vermelha 1")
-        st.session_state.metodo_rateio = get_item("Método de rateio") or "Proporcional ao total da fatura"
-        st.session_state.fonte_consumo = get_item("Fonte do consumo total") or "Leituras do prédio"
+# ===================== CORREÇÃO: aplicar valores do backup com segurança =====================
+# Listas de opções válidas
+opcoes_bandeira = ["Verde", "Amarela", "Vermelha 1", "Vermelha 2"]
+opcoes_metodo = ["Proporcional ao total da fatura", "Faixas individuais"]
+opcoes_fonte = ["Leituras do prédio", "Soma das quitinetes"]
 
-        st.success("Backup importado! Leituras anteriores e configurações foram aplicadas quando possível.")
-        st.write("Resumo do mês anterior:")
-        st.dataframe(resumo_imp)
-        st.write("Rateio do mês anterior (usado como leitura anterior):")
-        st.dataframe(rateio_imp)
+# Função segura para aplicar valor se estiver na lista
+def aplicar_valor_seguro(chave, valor, lista_opcoes):
+    if valor in lista_opcoes:
+        st.session_state[chave] = valor
+
+# Aplica valores do backup de forma segura
+aplicar_valor_seguro("bandeira_tarifaria", get_item("Bandeira por faixa"), opcoes_bandeira)
+aplicar_valor_seguro("metodo_rateio", get_item("Método de rateio"), opcoes_metodo)
+aplicar_valor_seguro("fonte_consumo", get_item("Fonte do consumo total"), opcoes_fonte)
+# =============================================================================================
+
+st.success("Backup importado! Leituras anteriores e configurações foram aplicadas quando possível.")
+st.write("Resumo do mês anterior:")
+st.dataframe(resumo_imp)
+st.write("Rateio do mês anterior (usado como leitura anterior):")
+st.dataframe(rateio_imp)
 
     except Exception as e:
         st.error(f"Erro ao importar backup: {e}")
