@@ -21,6 +21,10 @@ if "resumo_resultado" not in st.session_state:
     st.session_state.resumo_resultado = None
 if "alertas_resultado" not in st.session_state:
     st.session_state.alertas_resultado = []
+if "prev_map" not in st.session_state:
+    st.session_state.prev_map = {}
+if "import_resumo" not in st.session_state:
+    st.session_state.import_resumo = None
 
 # ===================== SIDEBAR: CONFIGURAÇÕES DE TARIFA =====================
 st.sidebar.header("⚙️ Tarifas Celesc (R$/kWh com tributos)")
@@ -143,7 +147,10 @@ for i in range(n):
 
         c1col, c2col = st.columns(2)
         with c1col:
-            ant = st.number_input("Leitura anterior (kWh)", min_value=0, step=1, key=f"ant_{i}")
+           leitura_ant_default = 0
+if st.session_state.prev_map and nomes_inquilinos[i] in st.session_state.prev_map:
+    leitura_ant_default = float(st.session_state.prev_map[nomes_inquilinos[i]])
+ant = st.number_input("Leitura anterior (kWh)", min_value=0, step=1, value=leitura_ant_default, key=f"ant_{i}")
         with c2col:
             at = st.number_input("Leitura atual (kWh)", min_value=0, step=1, key=f"at_{i}")
 
@@ -297,7 +304,38 @@ if not st.session_state.historico.empty:
         st.success("Histórico apagado com sucesso. Pronto para uma nova simulação.")
 else:
     st.info("Nenhum registro no histórico ainda. Faça um cálculo para começar.")
+    
+# ===================== ABA MÊS ANTERIOR (IMPORTAÇÃO) =====================
+st.header("📂 Mês anterior (importar backup)")
+arquivo = st.file_uploader("Carregue o arquivo Excel do mês anterior", type=["xlsx"])
 
+if arquivo is not None:
+    try:
+        xls = pd.ExcelFile(arquivo)
+        resumo_imp = pd.read_excel(xls, sheet_name="Resumo")
+        rateio_imp = pd.read_excel(xls, sheet_name="Rateio")
+
+        st.session_state.import_resumo = resumo_imp
+        st.session_state.prev_map = dict(zip(rateio_imp["Quitinete"], rateio_imp["Consumo (kWh)"]))
+
+        def get_item(item):
+            ser = resumo_imp.loc[resumo_imp["Item"] == item, "Valor"]
+            return ser.values[0] if len(ser.values) else None
+
+        st.session_state.bandeira_tarifaria = get_item("Bandeira por faixa") or "Vermelha 1"
+        st.session_state.metodo_rateio = get_item("Método de rateio") or "Proporcional ao total da fatura"
+        st.session_state.fonte_consumo = get_item("Fonte do consumo total") or "Leituras do prédio"
+        st.session_state.leitura_predio_ant = get_item("Consumo total (kWh)") or 0.0
+
+        st.success("Backup importado! Configurações e leituras anteriores aplicadas automaticamente.")
+        st.write("Resumo do mês anterior:")
+        st.dataframe(resumo_imp)
+        st.write("Rateio do mês anterior (usado como leitura anterior):")
+        st.dataframe(rateio_imp)
+
+    except Exception as e:
+        st.error(f"Erro ao importar backup: {e}")
+        
 # -------------------------------
 # EXPLICAÇÕES DISCRETAS (FIM DA PÁGINA)
 # -------------------------------
@@ -352,6 +390,15 @@ with st.expander("📏 Fonte de consumo total", expanded=False):
     **Soma das quitinetes**
     - Soma os consumos individuais informados.
     - Útil quando não há leitura do prédio ou ela está indisponível.
+    """)
+with st.expander("📂 Importação do mês anterior", expanded=False):
+    st.markdown("""
+    • Ao final de cada mês, baixe o relatório em Excel.  
+    • No mês seguinte, importe esse arquivo na aba **Mês anterior**.  
+    • O sistema vai recuperar automaticamente:  
+      – Bandeira tarifária, método de rateio e fonte do consumo total  
+      – Consumo (kWh) de cada quitinete do mês anterior, que passa a ser a **leitura anterior** deste mês.  
+    • Mantenha os nomes das quitinetes consistentes entre os meses para que a importação funcione corretamente.
     """)
 
 st.caption("Estas explicações são referenciais e não substituem as regras oficiais da concessionária.")
