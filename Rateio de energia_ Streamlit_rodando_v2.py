@@ -413,15 +413,15 @@ nome_id = st.session_state.get("resumo_resultado", {}).get("Identificação", ho
 # Finaliza e prepara botão de download
 buffer.seek(0)
 
-# ✅ Nome seguro para o arquivo
+# Gera nome seguro para o arquivo
 nome_id = st.session_state.get("resumo_resultado", {}).get("Identificação")
-if not nome_id:
-    nome_id = hora_local.strftime("%d-%m-%Y_%H-%M")
+if not nome_id or not isinstance(nome_id, str):
+    nome_id = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d-%m-%Y_%H-%M")
 
 st.download_button(
     label="⬇️ Baixar relatório em Excel",
     data=buffer,
-    file_name=f"rateio_{str(nome_id).replace('/', '-').replace(':', '-')}.xlsx",
+    file_name=f"rateio_{nome_id.replace('/', '-').replace(':', '-')}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 # Botão de download no Streamlit
