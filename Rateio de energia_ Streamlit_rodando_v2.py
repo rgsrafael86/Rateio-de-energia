@@ -335,7 +335,7 @@ wrote_any_sheet = False  # flag para saber se alguma aba foi escrita
 with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
 
   # --- Aba Rateio ---
-    try:
+   try:
     df_export = st.session_state.df_resultado.copy()
     df_export.index.name = "Unidade"
 
