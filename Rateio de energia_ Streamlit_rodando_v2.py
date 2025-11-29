@@ -410,25 +410,31 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
 
 # Prepara nome do arquivo com base na identificação
 nome_id = st.session_state.get("resumo_resultado", {}).get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
-# Finaliza e prepara botão de download
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+# Finaliza e prepara buffer para download
 buffer.seek(0)
 
-# Gera nome seguro para o arquivo
-nome_id = st.session_state.get("resumo_resultado", {}).get("Identificação")
-if not nome_id or not isinstance(nome_id, str):
-    nome_id = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d-%m-%Y_%H-%M")
+# Obtém hora local segura
+hora_local = datetime.now(ZoneInfo("America/Sao_Paulo"))
 
+# Tenta obter identificação do resumo
+resumo = st.session_state.get("resumo_resultado", {})
+identificacao = resumo.get("Identificação") if isinstance(resumo, dict) else None
+
+# Se não for string válida, usa data/hora como fallback
+if not isinstance(identificacao, str) or not identificacao.strip():
+    identificacao = hora_local.strftime("%d-%m-%Y_%H-%M-%S")
+
+# Sanitiza nome para evitar caracteres inválidos
+nome_arquivo = f"rateio_{identificacao.replace('/', '-').replace(':', '-')}.xlsx"
+
+# Botão de download
 st.download_button(
-    label="⬇️ Baixar relatório em Excel",
+    label="📥 Baixar relatório em Excel",
     data=buffer,
-    file_name=f"rateio_{nome_id.replace('/', '-').replace(':', '-')}.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
-# Botão de download no Streamlit
-st.download_button(
-    label="⬇️ Baixar relatório em Excel",
-    data=buffer,
-    file_name=f"rateio_{str(nome_id).replace('/', '-').replace(':', '-')}.xlsx",
+    file_name=nome_arquivo,
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 # ===================== ABA HISTÓRICO (SIMPLIFICADA) =====================
