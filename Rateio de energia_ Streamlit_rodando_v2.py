@@ -124,7 +124,6 @@ def calcular_valor_base(consumo_kwh: float) -> float:
     Não inclui COSIP.
     Usa o modelo de duas faixas: até 150 kWh e acima de 150 kWh.
     """
-    # Divide o consumo em duas faixas
     c1 = min(consumo_kwh, 150.0)        # parte até 150 kWh
     c2 = max(consumo_kwh - 150.0, 0.0)  # excedente acima de 150 kWh
 
@@ -138,9 +137,7 @@ def calcular_valor_base(consumo_kwh: float) -> float:
     else:
         bandeira = consumo_kwh * bandeira_valor_unico
 
-    # Retorna valor arredondado a centavos
     return round(te + tusd + bandeira, 2)
-
 def calcular_fatura_total(consumo_total_kwh: float) -> tuple[float, float]:
     """
     Retorna (total_fatura, valor_base_sem_cosip).
