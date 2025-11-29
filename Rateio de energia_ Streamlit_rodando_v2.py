@@ -203,12 +203,10 @@ if st.session_state.prev_map:
     st.markdown("🏠 Leituras e nomes sugeridos para as quitinetes:")
     for i, unidade in enumerate(st.session_state.prev_map.keys()):
         if "Áreas Comuns" in unidade:
-            # Apenas exibe como informação, sem aplicar
             leitura = st.session_state.prev_map[unidade]
             st.info(f"ℹ️ Áreas Comuns (backup): {leitura} kWh — calculada como diferença, sem medidor próprio.")
             continue
 
-        # Para quitinetes normais
         leitura = st.session_state.prev_map[unidade]
         nome_sugerido = unidade.split("-")[-1].strip() if "-" in unidade else unidade.strip()
         st.write(f"- {unidade}: {leitura} kWh (nome sugerido: {nome_sugerido})")
@@ -222,33 +220,21 @@ if st.session_state.prev_map:
 cosip_backup = get_item_resumo("COSIP (R$)")
 if cosip_backup is not None:
     st.info(f"💡 COSIP sugerido pelo backup: R$ {cosip_backup}")
-    aplicar_cosip = st.checkbox("Aplicar COSIP do backup", value=False)
-    if aplicar_cosip:
-        st.session_state["cosip"] = float(cosip_backup)
 
 # --- Bandeira tarifária ---
 bandeira_backup = get_item_resumo("Bandeira por faixa")
 if bandeira_backup is not None:
-    st.info(f"🚩 Bandeira sugerida pelo backup: {bandeira_backup}")
-    aplicar_bandeira = st.checkbox("Aplicar bandeira do backup", value=False)
-    if aplicar_bandeira and bandeira_backup in ["Verde", "Amarela", "Vermelha 1", "Vermelha 2"]:
-        st.session_state["bandeira_tarifaria"] = bandeira_backup
+    st.info(f"🏳️ Bandeira sugerida pelo backup: {bandeira_backup}")
 
 # --- Método de rateio ---
 metodo_backup = get_item_resumo("Método de rateio")
 if metodo_backup is not None:
     st.info(f"📊 Método de rateio sugerido: {metodo_backup}")
-    aplicar_metodo = st.checkbox("Aplicar método de rateio do backup", value=False)
-    if aplicar_metodo and metodo_backup in ["Proporcional ao total da fatura", "Faixas individuais"]:
-        st.session_state["metodo_rateio"] = metodo_backup
 
 # --- Fonte do consumo total ---
 fonte_backup = get_item_resumo("Fonte do consumo total")
 if fonte_backup is not None:
-    st.info(f"📏 Fonte do consumo sugerida: {fonte_backup}")
-    aplicar_fonte = st.checkbox("Aplicar fonte do consumo do backup", value=False)
-    if aplicar_fonte and fonte_backup in ["Leituras do prédio", "Soma das quitinetes"]:
-        st.session_state["fonte_consumo"] = fonte_backup
+    st.info(f"📉 Fonte do consumo sugerida: {fonte_backup}")
         
 # ===================== INTERFACE PRINCIPAL =====================
 # Leituras do prédio (medidor principal)
