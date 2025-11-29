@@ -409,7 +409,7 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         pd.DataFrame({"Info": ["Sem dados para exportar"]}).to_excel(writer, sheet_name="Resumo", index=False)
 
 # Prepara nome do arquivo com base na identificação
-nome_id = resumo_dict.get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
+nome_id = st.session_state.get("resumo_resultado", {}).get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
 
 # Botão de download no Streamlit
 st.download_button(
