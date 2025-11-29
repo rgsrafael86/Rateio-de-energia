@@ -292,7 +292,7 @@ st.session_state.resumo_resultado = {
 }
 
     # Adiciona ao histórico (cada unidade + possíveis Áreas Comuns)
-    adicionar_historico(nome_simulacao, df, valor_total, consumo_total)
+adicionar_historico(nome_simulacao, df, valor_total, consumo_total)
 
 # ===================== EXIBIÇÃO PERSISTENTE DE RESULTADOS =====================
 # Mostra tabela, gráfico e botão de exportar mesmo após outras interações
