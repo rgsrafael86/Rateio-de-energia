@@ -277,18 +277,19 @@ if st.button("Calcular"):
         st.warning(msg)
 
     # Salva resultado em session_state para exibir fora do bloco do botão
-    st.session_state.df_resultado = df
-    st.session_state.alertas_resultado = alertas
-    st.session_state.resumo_resultado = {
-        "Identificação": nome_simulacao,
-        "Consumo total (kWh)": consumo_total,
-        "Valor base (R$)": valor_base,
-        "COSIP (R$)": cosip,
-        "Total fatura (R$)": valor_total,
-        "Bandeira por faixa": "Sim" if usar_bandeira_por_faixa else "Não",
-        "Método de rateio": metodo_rateio,
-        "Fonte do consumo total": fonte_consumo,
-    }
+st.session_state.df_resultado = df
+st.session_state.alertas_resultado = alertas
+st.session_state.resumo_resultado = {
+    "Identificação": nome_simulacao,
+    "Consumo total (kWh)": consumo_total,
+    "Valor base (R$)": valor_base,
+    "COSIP (R$)": cosip,
+    "Total fatura (R$)": valor_total,
+    "Bandeira por faixa": "Sim" if usar_bandeira_por_faixa else "Não",
+    "Método de rateio": metodo_rateio,
+    "Fonte do consumo total": fonte_consumo,
+    "Leitura do prédio (kWh)": leitura_predio_at
+}
 
     # Adiciona ao histórico (cada unidade + possíveis Áreas Comuns)
     adicionar_historico(nome_simulacao, df, valor_total, consumo_total)
