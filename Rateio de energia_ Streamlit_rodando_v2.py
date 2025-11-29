@@ -410,7 +410,20 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
 
 # Prepara nome do arquivo com base na identificação
 nome_id = st.session_state.get("resumo_resultado", {}).get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
+# Finaliza e prepara botão de download
+buffer.seek(0)
 
+# ✅ Nome seguro para o arquivo
+nome_id = st.session_state.get("resumo_resultado", {}).get("Identificação")
+if not nome_id:
+    nome_id = hora_local.strftime("%d-%m-%Y_%H-%M")
+
+st.download_button(
+    label="⬇️ Baixar relatório em Excel",
+    data=buffer,
+    file_name=f"rateio_{str(nome_id).replace('/', '-').replace(':', '-')}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 # Botão de download no Streamlit
 st.download_button(
     label="⬇️ Baixar relatório em Excel",
