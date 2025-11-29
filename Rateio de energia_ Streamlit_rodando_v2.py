@@ -408,8 +408,6 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
     if not wrote_any_sheet:
         pd.DataFrame({"Info": ["Sem dados para exportar"]}).to_excel(writer, sheet_name="Resumo", index=False)
 
-# Prepara nome do arquivo com base na identificação
-nome_id = st.session_state.get("resumo_resultado", {}).get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
