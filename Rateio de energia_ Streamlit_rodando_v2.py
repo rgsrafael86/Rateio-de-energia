@@ -331,9 +331,14 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
 
         # Adiciona coluna de leitura atual (quitinetes)
         df_export["Leitura atual (kWh)"] = 0
-        for i, unidade in enumerate(df_export.index):
-            leitura_atual = st.session_state.get(f"at_{i}", 0)
-            df_export.loc[unidade, "Leitura atual (kWh)"] = leitura_atual
+for i, unidade in enumerate(df_export.index):
+# Só aplica leitura atual às quitinetes
+if unidade.startswith("Quitinete"):
+    leitura_atual = st.session_state.get(f"at_{i}", 0)
+    df_export.loc[unidade, "Leitura atual (kWh)"] = leitura_atual
+
+# Áreas Comuns não recebe leitura do prédio
+# Ela continua mostrando apenas o consumo calculado
 
         # Preenche leitura do prédio na linha correspondente
         leitura_predio_at = st.session_state.get("leitura_predio_at", None)
