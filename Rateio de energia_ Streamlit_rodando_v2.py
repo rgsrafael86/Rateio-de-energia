@@ -364,22 +364,28 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         )
         wrote_any_sheet = True
 
-    # --- Aba Resumo ---
-    resumo_dict = st.session_state.get("resumo_resultado") or {}
-    if resumo_dict:
-        resumo = pd.DataFrame(list(resumo_dict.items()), columns=["Item", "Valor"])
-        resumo.to_excel(writer, sheet_name="Resumo", index=False)
-        wrote_any_sheet = True
 
-        ws = writer.book["Resumo"]
-        for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
-                                      min_col=1, max_col=ws.max_column):
-            max_length = 0
-            col_letter = get_column_letter(col_cells[0].column)
-            for cell in col_cells:
-                if cell.value is not None:
-                    max_length = max(max_length, len(str(cell.value)))
-            ws.column_dimensions[col_letter].width = max_length + 2
+    # --- Aba Resumo ---
+resumo_dict = st.session_state.get("resumo_resultado") or {}
+
+# Garante que a leitura do prédio esteja registrada
+leitura_predio_at = st.session_state.get("leitura_predio_at", None)
+resumo_dict["Leitura do prédio (kWh)"] = leitura_predio_at if leitura_predio_at is not None else 0
+
+if resumo_dict:
+    resumo = pd.DataFrame(list(resumo_dict.items()), columns=["Item", "Valor"])
+    resumo.to_excel(writer, sheet_name="Resumo", index=False)
+    wrote_any_sheet = True
+
+    ws = writer.sheets["Resumo"]
+    for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
+                                  min_col=1, max_col=ws.max_column):
+        max_length = 0
+        col_letter = get_column_letter(col_cells[0].column)
+        for cell in col_cells:
+            if cell.value is not None:
+                max_length = max(max_length, len(str(cell.value)))
+        ws.column_dimensions[col_letter].width = max_length + 2
 
     # --- Aba Histórico ---
     historico_df = st.session_state.get("historico")
