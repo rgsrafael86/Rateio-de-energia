@@ -334,46 +334,53 @@ wrote_any_sheet = False  # flag para saber se alguma aba foi escrita
 
 with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
 
-  # --- Aba Rateio ---
-   try:
-    df_export = st.session_state.df_resultado.copy()
-    df_export.index.name = "Unidade"
+  with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+    try:
+        # --- Aba Rateio ---
+        df_export = st.session_state.df_resultado.copy()
+        df_export.index.name = "Unidade"
 
-    # Inicializa coluna de leitura atual
-    df_export["Leitura atual (kWh)"] = 0
+        # Garante a coluna de leitura atual
+        if "Leitura atual (kWh)" not in df_export.columns:
+            df_export["Leitura atual (kWh)"] = 0
 
-    # Preenche leitura atual das quitinetes
-    for i, unidade in enumerate(df_export.index):
-        leitura_atual = st.session_state.get(f"at_{i}", 0)
-        df_export.loc[unidade, "Leitura atual (kWh)"] = leitura_atual
+        # Preenche leitura atual das quitinetes a partir do session_state
+        for i, unidade in enumerate(df_export.index):
+            leitura_atual = st.session_state.get(f"at_{i}", 0)
+            df_export.loc[unidade, "Leitura atual (kWh)"] = leitura_atual
 
-    # Preenche leitura do prédio, se houver linha correspondente
-    leitura_predio_at = st.session_state.get("leitura_predio_at", None)
-    if leitura_predio_at is not None:
-        if "Áreas Comuns" in df_export.index:
-            df_export.loc["Áreas Comuns", "Leitura atual (kWh)"] = leitura_predio_at
-        elif "Prédio" in df_export.index:
-            df_export.loc["Prédio", "Leitura atual (kWh)"] = leitura_predio_at
+        # Leitura do prédio (usa a variável correta)
+        leitura_predio_at = st.session_state.get("leitura_predio_at", None)
+        if leitura_predio_at is not None:
+            if "Áreas Comuns" in df_export.index:
+                df_export.loc["Áreas Comuns", "Leitura atual (kWh)"] = leitura_predio_at
+            elif "Prédio" in df_export.index:
+                df_export.loc["Prédio", "Leitura atual (kWh)"] = leitura_predio_at
+            elif "Total" in df_export.index:
+                df_export.loc["Total", "Leitura atual (kWh)"] = leitura_predio_at
 
-    # Exporta para Excel
-    df_export.to_excel(writer, sheet_name="Rateio", index=True)
-    wrote_any_sheet = True
+        # Exporta para Excel
+        df_export.to_excel(writer, sheet_name="Rateio", index=True)
+        wrote_any_sheet = True  # use uma flag sua, não 'writer.any_sheet'
 
-    # Ajusta largura das colunas da aba "Rateio"
-    ws = writer.book["Rateio"]
-    for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
-        max_length = 0
-        col_letter = get_column_letter(col_cells[0].column)
-        for cell in col_cells:
-            if cell.value is not None:
-                max_length = max(max_length, len(str(cell.value)))
-        ws.column_dimensions[col_letter].width = max_length + 2
+        # Ajusta largura das colunas da aba "Rateio"
+        worksheet = writer.sheets["Rateio"]
+        for col_idx, col_name in enumerate(df_export.columns, start=1):
+            max_length = len(str(col_name))
+            for row_idx in range(df_export.shape[0]):
+                val = df_export.iloc[row_idx, col_idx - 1]
+                if val is not None:
+                    max_length = max(max_length, len(str(val)))
+            from openpyxl.utils import get_column_letter
+            worksheet.column_dimensions[get_column_letter(col_idx)].width = max_length + 2
 
-        except Exception:
-    # Se por algum motivo df_resultado falhar, cria uma aba mínima
-    pd.DataFrame({"Unidade": ["Erro"], "kWh": [0], "Valor (R$)": [0]}).to_excel(
-        writer, sheet_name="Rateio", index=False
-    )
+    except Exception as e:
+        # Aba mínima em caso de falha
+        pd.DataFrame({"Unidade": ["Erro"], "kWh": [0], "Valor (R$)": [0]}).to_excel(
+            writer, sheet_name="Rateio", index=False
+        )
+        wrote_any_sheet = True
+        
     # --- Aba Histórico ---
     historico_df = st.session_state.get("historico")
     if isinstance(historico_df, pd.DataFrame) and not historico_df.empty:
