@@ -185,8 +185,9 @@ def get_item_resumo(item):
     except Exception:
         return None
 
-# --- Sugere número de quitinetes com base no backup ---
-n_sugerido = len(st.session_state.prev_map) if st.session_state.prev_map else 1
+# --- Sugere número de quitinetes com base no backup (ignora Áreas Comuns) ---
+n_sugerido = sum(1 for unidade in st.session_state.prev_map.keys() if "Áreas Comuns" not in unidade) \
+             if st.session_state.prev_map else 1
 st.session_state["n_sugerido"] = n_sugerido  # usado no slider principal depois
 
 # --- Leitura anterior do prédio ---
@@ -197,10 +198,17 @@ if leitura_predio_ant_backup is not None:
     if aplicar_predio:
         st.session_state["leitura_predio_ant"] = int(leitura_predio_ant_backup)
 
-# --- Leituras das quitinetes + nomes ---
+# --- Leituras das quitinetes (não inclui Áreas Comuns) ---
 if st.session_state.prev_map:
     st.markdown("🏠 Leituras e nomes sugeridos para as quitinetes:")
     for i, unidade in enumerate(st.session_state.prev_map.keys()):
+        if "Áreas Comuns" in unidade:
+            # Apenas exibe como informação, sem aplicar
+            leitura = st.session_state.prev_map[unidade]
+            st.info(f"ℹ️ Áreas Comuns (backup): {leitura} kWh — calculada como diferença, sem medidor próprio.")
+            continue
+
+        # Para quitinetes normais
         leitura = st.session_state.prev_map[unidade]
         nome_sugerido = unidade.split("-")[-1].strip() if "-" in unidade else unidade.strip()
         st.write(f"- {unidade}: {leitura} kWh (nome sugerido: {nome_sugerido})")
