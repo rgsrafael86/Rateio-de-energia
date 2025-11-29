@@ -172,7 +172,74 @@ def adicionar_historico(nome_simulacao: str, df: pd.DataFrame, valor_total: floa
     linha["Consumo Total"] = consumo_total
     linha["Valor Total"] = valor_total
     st.session_state.historico = pd.concat([st.session_state.historico, linha.reset_index()], ignore_index=True)
+    
+# ===================== APLICAR BACKUP =====================
+st.header("📂 Aplicar Backup")
 
+# --- Função auxiliar para buscar itens na aba Resumo ---
+def get_item_resumo(item):
+    try:
+        resumo_imp = st.session_state.import_resumo
+        ser = resumo_imp.loc[resumo_imp["Item"] == item, "Valor"]
+        return ser.values[0] if len(ser.values) else None
+    except Exception:
+        return None
+
+# --- Leitura anterior do prédio ---
+leitura_predio_ant_backup = get_item_resumo("Leitura do prédio (kWh)")
+if leitura_predio_ant_backup is not None:
+    st.info(f"🏢 Leitura anterior do prédio sugerida: **{leitura_predio_ant_backup} kWh**")
+    aplicar_predio = st.checkbox("Aplicar leitura do prédio do backup", value=False)
+    if aplicar_predio:
+        st.session_state["leitura_predio_ant"] = int(leitura_predio_ant_backup)
+
+# --- Leituras das quitinetes + nomes ---
+if st.session_state.prev_map:
+    st.markdown("🏠 Leituras e nomes sugeridos para as quitinetes:")
+    for i, unidade in enumerate(st.session_state.prev_map.keys()):
+        leitura = st.session_state.prev_map[unidade]
+        # extrai nome após o hífen, se existir
+        nome_sugerido = unidade.split("-")[-1].strip() if "-" in unidade else unidade.strip()
+        st.write(f"- {unidade}: {leitura} kWh (nome sugerido: {nome_sugerido})")
+
+        aplicar_quit = st.checkbox(f"Aplicar dados do backup para {unidade}", value=False, key=f"aplicar_{i}")
+        if aplicar_quit:
+            # aplica leitura anterior
+            st.session_state[f"ant_{i}"] = int(float(leitura))
+            # aplica nome sugerido
+            st.session_state[f"nome_{i}"] = nome_sugerido
+
+# --- COSIP ---
+cosip_backup = get_item_resumo("COSIP (R$)")
+if cosip_backup is not None:
+    st.info(f"💡 COSIP sugerido pelo backup: R$ {cosip_backup}")
+    aplicar_cosip = st.checkbox("Aplicar COSIP do backup", value=False)
+    if aplicar_cosip:
+        st.session_state["cosip"] = float(cosip_backup)
+
+# --- Bandeira tarifária ---
+bandeira_backup = get_item_resumo("Bandeira por faixa")
+if bandeira_backup is not None:
+    st.info(f"🚩 Bandeira sugerida pelo backup: {bandeira_backup}")
+    aplicar_bandeira = st.checkbox("Aplicar bandeira do backup", value=False)
+    if aplicar_bandeira and bandeira_backup in ["Verde", "Amarela", "Vermelha 1", "Vermelha 2"]:
+        st.session_state["bandeira_tarifaria"] = bandeira_backup
+
+# --- Método de rateio ---
+metodo_backup = get_item_resumo("Método de rateio")
+if metodo_backup is not None:
+    st.info(f"📊 Método de rateio sugerido: {metodo_backup}")
+    aplicar_metodo = st.checkbox("Aplicar método de rateio do backup", value=False)
+    if aplicar_metodo and metodo_backup in ["Proporcional ao total da fatura", "Faixas individuais"]:
+        st.session_state["metodo_rateio"] = metodo_backup
+
+# --- Fonte do consumo total ---
+fonte_backup = get_item_resumo("Fonte do consumo total")
+if fonte_backup is not None:
+    st.info(f"📏 Fonte do consumo sugerida: {fonte_backup}")
+    aplicar_fonte = st.checkbox("Aplicar fonte do consumo do backup", value=False)
+    if aplicar_fonte and fonte_backup in ["Leituras do prédio", "Soma das quitinetes"]:
+        st.session_state["fonte_consumo"] = fonte_backup
 # ===================== INTERFACE PRINCIPAL =====================
 # Leituras do prédio (medidor principal)
 st.header("🔢 Leituras do prédio")
