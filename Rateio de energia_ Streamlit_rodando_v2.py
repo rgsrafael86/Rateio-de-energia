@@ -345,6 +345,18 @@ if st.session_state.df_resultado is not None:
         if isinstance(historico_df, pd.DataFrame) and not historico_df.empty:
             historico_df.to_excel(writer, sheet_name="Histórico", index=False)
             wrote_any_sheet = True
+       # --- Exportação do resumo ---
+resumo_dict = st.session_state.get("resumo_resultado") or {}
+resumo_dict["Leitura do prédio (kWh)"] = st.session_state.get("leitura_predio_at", 0)
+
+       # --- Exportação do rateio ---
+df_export = st.session_state.df_resultado.copy()
+df_export.index.name = "Unidade"
+
+       # Adiciona coluna de leitura atual (quitinetes + prédio)
+df_export["Leitura atual (kWh)"] = [
+    st.session_state.get(f"at_{i}", 0) for i in range(n)
+] + ([st.session_state.get("leitura_predio_at", 0)] if "Áreas Comuns" in df_export.index else [])     
 
         # Se nenhuma aba foi escrita por algum motivo, garanta ao menos uma visível
         if not wrote_any_sheet:
