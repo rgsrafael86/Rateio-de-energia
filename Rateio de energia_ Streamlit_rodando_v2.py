@@ -331,6 +331,8 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         # --- Aba Rateio ---
         df_export = st.session_state.df_resultado.copy()
         df_export.index.name = "Unidade"
+
+        # Adiciona coluna de leitura atual (apenas para quitinetes)
         df_export["Leitura atual (kWh)"] = 0
         for i, unidade in enumerate(df_export.index):
             if unidade.startswith("Quitinete"):
@@ -340,30 +342,38 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df_export.to_excel(writer, sheet_name="Rateio", index=True)
         wrote_any_sheet = True
 
+        ws = writer.sheets["Rateio"]
+        for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
+                                      min_col=1, max_col=ws.max_column):
+            max_length = 0
+            col_letter = get_column_letter(col_cells[0].column)
+            for cell in col_cells:
+                if cell.value is not None:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = max_length + 2
+
         # --- Aba Resumo ---
-        df_resumo = st.session_state.df_resumo.copy()
-        df_resumo.to_excel(writer, sheet_name="Resumo", index=False)
-        wrote_any_sheet = True
-
-        # --- Aba Histórico ---
-        df_historico = st.session_state.df_historico.copy()
-        df_historico.to_excel(writer, sheet_name="Histórico", index=False)
-        wrote_any_sheet = True
-
-        # Se nenhuma aba foi escrita, cria uma aba padrão
-        if not wrote_any_sheet:
-            pd.DataFrame({'Mensagem': ['Nenhum dado disponível']}).to_excel(writer, sheet_name='Vazio')
-
-    except Exception as e:
-        pd.DataFrame({'Erro': [str(e)]}).to_excel(writer, sheet_name='Erro')
- 
-        # === ABA HISTÓRICO ===
-        historico_df = st.session_state.get("historico")
-        if isinstance(historico_df, pd.DataFrame) and not historico_df.empty:
-            historico_df.to_excel(writer, sheet_name="Histórico", index=False)
+        if hasattr(st.session_state, "df_resumo"):
+            df_resumo = st.session_state.df_resumo.copy()
+            df_resumo.to_excel(writer, sheet_name="Resumo", index=False)
             wrote_any_sheet = True
 
-            # Ajusta largura das colunas da aba Histórico
+            ws = writer.sheets["Resumo"]
+            for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
+                                          min_col=1, max_col=ws.max_column):
+                max_length = 0
+                col_letter = get_column_letter(col_cells[0].column)
+                for cell in col_cells:
+                    if cell.value is not None:
+                        max_length = max(max_length, len(str(cell.value)))
+                ws.column_dimensions[col_letter].width = max_length + 2
+
+        # --- Aba Histórico ---
+        if hasattr(st.session_state, "df_historico"):
+            df_historico = st.session_state.df_historico.copy()
+            df_historico.to_excel(writer, sheet_name="Histórico", index=False)
+            wrote_any_sheet = True
+
             ws = writer.sheets["Histórico"]
             for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
                                           min_col=1, max_col=ws.max_column):
@@ -374,10 +384,12 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
                         max_length = max(max_length, len(str(cell.value)))
                 ws.column_dimensions[col_letter].width = max_length + 2
 
+        # Se nenhuma aba foi escrita, cria uma aba padrão
+        if not wrote_any_sheet:
+            pd.DataFrame({'Mensagem': ['Nenhum dado disponível']}).to_excel(writer, sheet_name='Vazio')
+
     except Exception as e:
-        # Em caso de erro, cria aba de erro com a mensagem
-        pd.DataFrame({"Erro": [str(e)]}).to_excel(writer, sheet_name="Erro", index=False)
-        wrote_any_sheet = True
+        pd.DataFrame({'Erro': [str(e)]}).to_excel(writer, sheet_name='Erro')
 
     # Se nenhuma aba foi escrita, cria uma aba padrão
     if not wrote_any_sheet:
