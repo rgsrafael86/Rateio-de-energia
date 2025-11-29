@@ -312,75 +312,33 @@ if st.session_state.df_resultado is not None:
     for msg in st.session_state.alertas_resultado:
         st.warning(msg)
 
-    # ===================== EXPORTAÇÃO PARA EXCEL =====================
-    # Gera um arquivo Excel com 3 abas: Rateio, Resumo, Histórico
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        wrote_any_sheet = False
+  # ===================== EXPORTAÇÃO PARA EXCEL =====================
+# Gera um arquivo Excel com 3 abas: Rateio, Resumo, Histórico
 
-        # Aba Rateio (sempre cria, ainda que vazia)
-        df_export = st.session_state.df_resultado.copy()
-        df_export.index.name = "Quitinete"
-        try:
-            df_export.to_excel(writer, sheet_name="Rateio", index=True)
-            wrote_any_sheet = True
-        except Exception:
-            # Se por algum motivo df_resultado falhar, cria uma aba mínima
-            pd.DataFrame({"Quitinete": [], "Consumo (kWh)": [], "Valor (R$)": []}).to_excel(
-                writer, sheet_name="Rateio", index=False
-            )
-            wrote_any_sheet = True
+import io
+import pandas as pd
+from openpyxl.utils import get_column_letter
 
-        # Aba Resumo (chave-valor do dicionário de resumo), com validação robusta
-        resumo_dict = st.session_state.get("resumo_resultado") or {}
-        if isinstance(resumo_dict, dict) and resumo_dict:
-            itens = list(resumo_dict.keys())
-            valores = [str(v) if not isinstance(v, (int, float, str)) else v for v in resumo_dict.values()]
-            resumo = pd.DataFrame({"Item": itens, "Valor": valores})
-            resumo.to_excel(writer, sheet_name="Resumo", index=False)
-            wrote_any_sheet = True
-
-        # Aba Histórico (se existir e não estiver vazio)
-        historico_df = st.session_state.get("historico")
-        if isinstance(historico_df, pd.DataFrame) and not historico_df.empty:
-            historico_df.to_excel(writer, sheet_name="Histórico", index=False)
-            wrote_any_sheet = True
-            
-     # --- Exportação do resumo ---
-# Garante que o dicionário exista
+# Garante que o dicionário de resumo exista e esteja padronizado
 resumo_dict = st.session_state.get("resumo_resultado")
 if resumo_dict is None or not isinstance(resumo_dict, dict):
     resumo_dict = {}
 
-# Padroniza a chave do resumo (use sempre mesma capitalização)
-# IMPORTANTE: mantenha exatamente "Leitura do prédio (kWh)" para casar com a importação
+# Padroniza a chave da leitura do prédio
 resumo_dict["Leitura do prédio (kWh)"] = st.session_state.get("leitura_predio_at", 0)
-
-# Salva de volta no session_state (caso seu fluxo dependa disso depois)
-st.session_state["resumo_resultado"] = resumo_dict
-
-import pandas as pd
-from openpyxl.utils import get_column_letter
-
-import io
-import pandas as pd
-
-import io
-import pandas as pd
-from openpyxl.utils import get_column_letter
+st.session_state["resumo_resultado"] = resumo_dict  # salva de volta
 
 # Cria buffer de memória para armazenar o arquivo Excel
 buffer = io.BytesIO()
 wrote_any_sheet = False  # flag para saber se alguma aba foi escrita
 
-# Abre o escritor de Excel usando openpyxl (permite ajustar largura de colunas)
 with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
 
     # --- Aba Rateio ---
-    # Verifica se o DataFrame de resultado existe e não está vazio
-    if not df_export.empty:
-        # Escreve a aba "Rateio"
-        df_export.to_excel(writer, sheet_name="Rateio")
+    try:
+        df_export = st.session_state.df_resultado.copy()
+        df_export.index.name = "Quitinete"
+        df_export.to_excel(writer, sheet_name="Rateio", index=True)
         wrote_any_sheet = True
 
         # Ajusta largura das colunas da aba "Rateio"
@@ -393,13 +351,19 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
                     max_length = max(max_length, len(str(cell.value)))
             ws.column_dimensions[col_letter].width = max_length + 2
 
-    # --- Aba Resumo ---
-    # Verifica se o dicionário de resumo existe e tem conteúdo
-    if resumo_dict:
-        # Escreve a aba "Resumo"
-        pd.DataFrame(list(resumo_dict.items()), columns=["Item", "Valor"]).to_excel(
-            writer, sheet_name="Resumo", index=False
+    except Exception:
+        # Se por algum motivo df_resultado falhar, cria uma aba mínima
+        pd.DataFrame({"Quitinete": [], "Consumo (kWh)": [], "Valor (R$)": []}).to_excel(
+            writer, sheet_name="Rateio", index=False
         )
+        wrote_any_sheet = True
+
+    # --- Aba Resumo ---
+    if resumo_dict:
+        itens = list(resumo_dict.keys())
+        valores = [str(v) if not isinstance(v, (int, float, str)) else v for v in resumo_dict.values()]
+        resumo = pd.DataFrame({"Item": itens, "Valor": valores})
+        resumo.to_excel(writer, sheet_name="Resumo", index=False)
         wrote_any_sheet = True
 
         # Ajusta largura das colunas da aba "Resumo"
@@ -412,8 +376,23 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
                     max_length = max(max_length, len(str(cell.value)))
             ws.column_dimensions[col_letter].width = max_length + 2
 
+    # --- Aba Histórico ---
+    historico_df = st.session_state.get("historico")
+    if isinstance(historico_df, pd.DataFrame) and not historico_df.empty:
+        historico_df.to_excel(writer, sheet_name="Histórico", index=False)
+        wrote_any_sheet = True
+
+        # Ajusta largura das colunas da aba "Histórico"
+        ws = writer.book["Histórico"]
+        for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+            max_length = 0
+            col_letter = get_column_letter(col_cells[0].column)
+            for cell in col_cells:
+                if cell.value is not None:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = max_length + 2
+
     # --- Aba fallback ---
-    # Se nenhuma aba foi escrita, cria uma aba padrão com aviso
     if not wrote_any_sheet:
         pd.DataFrame({"Info": ["Sem dados para exportar"]}).to_excel(writer, sheet_name="Resumo", index=False)
 
@@ -421,7 +400,7 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
 buffer.seek(0)  # reposiciona o ponteiro do buffer para o início
 
 # Define nome do arquivo com base na identificação ou data/hora
-nome_id = (st.session_state.get("resumo_resultado") or {}).get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
+nome_id = resumo_dict.get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
 
 # Cria botão para baixar o arquivo gerado
 st.download_button(
@@ -430,15 +409,6 @@ st.download_button(
     file_name=f"rateio_{str(nome_id).replace('/', '-').replace(':', '-')}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
-    # --- Botão de download ---
-    buffer.seek(0)
-    nome_id = resumo_dict.get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
-    st.download_button(
-        label="⬇️ Baixar relatório em Excel",
-        data=buffer,
-        file_name=f"rateio_{str(nome_id).replace('/', '-').replace(':', '-')}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
 # ===================== ABA HISTÓRICO (SIMPLIFICADA) =====================
 st.header("📅 Histórico de Rateios")
 if not st.session_state.historico.empty:
