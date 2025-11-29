@@ -347,16 +347,16 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df_export.to_excel(writer, sheet_name="Rateio", index=True)
         wrote_any_sheet = True
 
-        # Ajusta largura das colunas
-        ws = writer.book["Rateio"]
-        for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
-                                      min_col=1, max_col=ws.max_column):
-            max_length = 0
-            col_letter = get_column_letter(col_cells[0].column)
-            for cell in col_cells:
-                if cell.value is not None:
-                    max_length = max(max_length, len(str(cell.value)))
-            ws.column_dimensions[col_letter].width = max_length + 2
+      # Ajusta largura das colunas
+ws = writer.book["Rateio"]
+for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
+                              min_col=1, max_col=ws.max_column):
+    max_length = 0
+    col_letter = get_column_letter(col_cells[0].column)
+    for cell in col_cells:
+        if cell.value is not None:
+            max_length = max(max_length, len(str(cell.value)))
+    ws.column_dimensions[col_letter].width = max_length + 2
 
     except Exception:
         pd.DataFrame({"Unidade": ["Erro"], "kWh": [0], "Valor (R$)": [0]}).to_excel(
