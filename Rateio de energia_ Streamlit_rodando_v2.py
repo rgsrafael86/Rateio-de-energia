@@ -280,10 +280,14 @@ if st.button("Calcular"):
     for msg in alertas:
         st.warning(msg)
 
-    # Salva resultado em session_state
+    # -----------------------------
+    # 🔧 Salva resultados no session_state
+    # -----------------------------
     st.session_state.df_resultado = df
     st.session_state.alertas_resultado = alertas
-    st.session_state.resumo_resultado = {
+
+    # Converte resumo_resultado (dict) em DataFrame para exportação
+    resumo_dict = {
         "Identificação": nome_simulacao,
         "Consumo total (kWh)": consumo_total,
         "Valor base (R$)": valor_base,
@@ -292,11 +296,16 @@ if st.button("Calcular"):
         "Bandeira por faixa": "Sim" if usar_bandeira_por_faixa else "Não",
         "Método de rateio": metodo_rateio,
         "Fonte do consumo total": fonte_consumo,
-        "Leitura do prédio (kWh)": st.session_state["leitura_predio_at"]  # ✅ Correção aplicada
+        "Leitura do prédio (kWh)": st.session_state["leitura_predio_at"]
     }
+    df_resumo = pd.DataFrame(list(resumo_dict.items()), columns=["Item", "Valor"])
+    st.session_state.df_resumo = df_resumo
 
     # Adiciona ao histórico (cada unidade + possíveis Áreas Comuns)
     adicionar_historico(nome_simulacao, df, valor_total, consumo_total)
+
+    # Converte histórico acumulado em DataFrame para exportação
+    st.session_state.df_historico = st.session_state.historico.copy()
 # ===================== EXIBIÇÃO PERSISTENTE DE RESULTADOS =====================
 # Mostra tabela, gráfico e botão de exportar mesmo após outras interações
 if st.session_state.df_resultado is not None:
