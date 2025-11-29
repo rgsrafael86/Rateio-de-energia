@@ -247,7 +247,12 @@ if fonte_backup is not None:
 st.header("🔢 Leituras do prédio")
 col1, col2 = st.columns(2)
 with col1:
-    leitura_predio_ant = st.number_input("Leitura anterior do prédio (kWh)", min_value=0, step=1)
+    leitura_predio_ant = st.number_input(
+    "Leitura anterior do prédio (kWh)",
+    min_value=0,
+    step=1,
+    value=st.session_state.get("leitura_predio_ant", 0)
+)
 with col2:
     leitura_predio_at = st.number_input("Leitura atual do prédio (kWh)", min_value=0, step=1)
 
@@ -257,7 +262,7 @@ nome_simulacao = st.text_input("Identificação da simulação", value=hora_loca
 
 # Leituras das quitinetes (cada unidade)
 st.header("🏠 Leituras das quitinetes")
-n = st.slider("Número de quitinetes", 1, 5, value=1)
+n = st.slider("Número de quitinetes", 1, 5, value=st.session_state.get("n_sugerido", 1))
 consumos_individuais = []
 nomes_inquilinos = []
 
