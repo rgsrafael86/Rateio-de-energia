@@ -311,29 +311,27 @@ if st.session_state.df_resultado is not None:
 
     for msg in st.session_state.alertas_resultado:
         st.warning(msg)
-
 import io
 import pandas as pd
 from openpyxl.utils import get_column_letter
 
-# Cria buffer de memória
+# Cria buffer de memória para gerar o arquivo Excel em tempo real
 buffer = io.BytesIO()
-wrote_any_sheet = False
+wrote_any_sheet = False  # Flag para saber se alguma aba foi escrita
 
 with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-
-    # --- Aba Rateio ---
     try:
+        # === ABA RATEIO ===
         df_export = st.session_state.df_resultado.copy()
         df_export.index.name = "Unidade"
 
-        # Adiciona coluna de leitura atual
+        # Adiciona coluna de leitura atual (quitinetes)
         df_export["Leitura atual (kWh)"] = 0
         for i, unidade in enumerate(df_export.index):
             leitura_atual = st.session_state.get(f"at_{i}", 0)
             df_export.loc[unidade, "Leitura atual (kWh)"] = leitura_atual
 
-        # Leitura do prédio
+        # Preenche leitura do prédio na linha correspondente
         leitura_predio_at = st.session_state.get("leitura_predio_at", None)
         if leitura_predio_at is not None:
             if "Áreas Comuns" in df_export.index:
@@ -343,57 +341,12 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
             elif "Total" in df_export.index:
                 df_export.loc["Total", "Leitura atual (kWh)"] = leitura_predio_at
 
-        # Exporta Rateio
+        # Exporta aba Rateio
         df_export.to_excel(writer, sheet_name="Rateio", index=True)
         wrote_any_sheet = True
 
-      # Ajusta largura das colunas
-ws = writer.book["Rateio"]
-for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
-                              min_col=1, max_col=ws.max_column):
-    max_length = 0
-    col_letter = get_column_letter(col_cells[0].column)
-    for cell in col_cells:
-        if cell.value is not None:
-            max_length = max(max_length, len(str(cell.value)))
-    ws.column_dimensions[col_letter].width = max_length + 2
-
-    except Exception:
-        pd.DataFrame({"Unidade": ["Erro"], "kWh": [0], "Valor (R$)": [0]}).to_excel(
-            writer, sheet_name="Rateio", index=False
-        )
-        wrote_any_sheet = True
-
-
-    # --- Aba Resumo ---
-resumo_dict = st.session_state.get("resumo_resultado") or {}
-
-# Garante que a leitura do prédio esteja registrada
-leitura_predio_at = st.session_state.get("leitura_predio_at", None)
-resumo_dict["Leitura do prédio (kWh)"] = leitura_predio_at if leitura_predio_at is not None else 0
-
-if resumo_dict:
-    resumo = pd.DataFrame(list(resumo_dict.items()), columns=["Item", "Valor"])
-    resumo.to_excel(writer, sheet_name="Resumo", index=False)
-    wrote_any_sheet = True
-
-    ws = writer.sheets["Resumo"]
-    for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
-                                  min_col=1, max_col=ws.max_column):
-        max_length = 0
-        col_letter = get_column_letter(col_cells[0].column)
-        for cell in col_cells:
-            if cell.value is not None:
-                max_length = max(max_length, len(str(cell.value)))
-        ws.column_dimensions[col_letter].width = max_length + 2
-
-    # --- Aba Histórico ---
-    historico_df = st.session_state.get("historico")
-    if isinstance(historico_df, pd.DataFrame) and not historico_df.empty:
-        historico_df.to_excel(writer, sheet_name="Histórico", index=False)
-        wrote_any_sheet = True
-
-        ws = writer.book["Histórico"]
+        # Ajusta largura das colunas da aba Rateio
+        ws = writer.sheets["Rateio"]
         for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
                                       min_col=1, max_col=ws.max_column):
             max_length = 0
@@ -403,16 +356,58 @@ if resumo_dict:
                     max_length = max(max_length, len(str(cell.value)))
             ws.column_dimensions[col_letter].width = max_length + 2
 
-    # --- Aba fallback ---
-    if not wrote_any_sheet:
-        pd.DataFrame({"Info": ["Sem dados para exportar"]}).to_excel(
-            writer, sheet_name="Resumo", index=False
-        )
+        # === ABA RESUMO ===
+        resumo_dict = st.session_state.get("resumo_resultado") or {}
 
-# Finaliza e prepara botão de download
-buffer.seek(0)
+        # Garante que a leitura do prédio esteja registrada no resumo
+        resumo_dict["Leitura do prédio (kWh)"] = leitura_predio_at if leitura_predio_at is not None else 0
+
+        # Exporta aba Resumo
+        resumo = pd.DataFrame(list(resumo_dict.items()), columns=["Item", "Valor"])
+        resumo.to_excel(writer, sheet_name="Resumo", index=False)
+        wrote_any_sheet = True
+
+        # Ajusta largura das colunas da aba Resumo
+        ws = writer.sheets["Resumo"]
+        for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
+                                      min_col=1, max_col=ws.max_column):
+            max_length = 0
+            col_letter = get_column_letter(col_cells[0].column)
+            for cell in col_cells:
+                if cell.value is not None:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = max_length + 2
+
+        # === ABA HISTÓRICO ===
+        historico_df = st.session_state.get("historico")
+        if isinstance(historico_df, pd.DataFrame) and not historico_df.empty:
+            historico_df.to_excel(writer, sheet_name="Histórico", index=False)
+            wrote_any_sheet = True
+
+            # Ajusta largura das colunas da aba Histórico
+            ws = writer.sheets["Histórico"]
+            for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
+                                          min_col=1, max_col=ws.max_column):
+                max_length = 0
+                col_letter = get_column_letter(col_cells[0].column)
+                for cell in col_cells:
+                    if cell.value is not None:
+                        max_length = max(max_length, len(str(cell.value)))
+                ws.column_dimensions[col_letter].width = max_length + 2
+
+    except Exception as e:
+        # Em caso de erro, cria aba de erro com a mensagem
+        pd.DataFrame({"Erro": [str(e)]}).to_excel(writer, sheet_name="Erro", index=False)
+        wrote_any_sheet = True
+
+    # Se nenhuma aba foi escrita, cria uma aba padrão
+    if not wrote_any_sheet:
+        pd.DataFrame({"Info": ["Sem dados para exportar"]}).to_excel(writer, sheet_name="Resumo", index=False)
+
+# Prepara nome do arquivo com base na identificação
 nome_id = resumo_dict.get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
 
+# Botão de download no Streamlit
 st.download_button(
     label="⬇️ Baixar relatório em Excel",
     data=buffer,
