@@ -369,7 +369,7 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
                 max_length = max(max_length, len(str(cell.value)))
         ws.column_dimensions[col_letter].width = max_length + 2
 
-                    except Exception:
+        except Exception:
     # Se por algum motivo df_resultado falhar, cria uma aba mínima
     pd.DataFrame({"Unidade": ["Erro"], "kWh": [0], "Valor (R$)": [0]}).to_excel(
         writer, sheet_name="Rateio", index=False
