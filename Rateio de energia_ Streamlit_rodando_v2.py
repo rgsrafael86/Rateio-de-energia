@@ -394,29 +394,36 @@ else:
     wrote_any_sheet = False
 
     # Use xlsxwriter e ajuste largura com set_column
-    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-        # Rateio
-        if not df_export.empty:
-            df_export.to_excel(writer, sheet_name="Rateio")
-            wrote_any_sheet = True
-            ws = writer.sheets["Rateio"]
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+    # Aba Rateio
+    if not df_export.empty:
+        df_export.to_excel(writer, sheet_name="Rateio")
+        wrote_any_sheet = True
 
-            # Define larguras simples (ajuste conforme necessário)
-            # 0 = coluna A (índice), 1..N = colunas do df
-            num_cols = df_export.reset_index().shape[1]
-            ws.set_column(0, 0, 18)  # coluna 'Unidade' (índice exportado)
-            for c in range(1, num_cols):
-                ws.set_column(c, c, 18)
+        ws = writer.book["Rateio"]
+        for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+            max_length = 0
+            col_letter = get_column_letter(col_cells[0].column)
+            for cell in col_cells:
+                if cell.value is not None:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = max_length + 2
 
-        # Resumo
-        if resumo_dict:
-            pd.DataFrame(list(resumo_dict.items()), columns=["Item", "Valor"]).to_excel(
-                writer, sheet_name="Resumo", index=False
-            )
-            wrote_any_sheet = True
-            ws = writer.sheets["Resumo"]
-            ws.set_column(0, 1, 22)
+    # Aba Resumo
+    if resumo_dict:
+        pd.DataFrame(list(resumo_dict.items()), columns=["Item", "Valor"]).to_excel(
+            writer, sheet_name="Resumo", index=False
+        )
+        wrote_any_sheet = True
 
+        ws = writer.book["Resumo"]
+        for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+            max_length = 0
+            col_letter = get_column_letter(col_cells[0].column)
+            for cell in col_cells:
+                if cell.value is not None:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = max_length + 2
         if not wrote_any_sheet:
             pd.DataFrame({"Info": ["Sem dados para exportar"]}).to_excel(writer, sheet_name="Resumo", index=False)
 
