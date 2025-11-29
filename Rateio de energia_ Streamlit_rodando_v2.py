@@ -345,10 +345,60 @@ if st.session_state.df_resultado is not None:
         if isinstance(historico_df, pd.DataFrame) and not historico_df.empty:
             historico_df.to_excel(writer, sheet_name="Histórico", index=False)
             wrote_any_sheet = True
-       # --- Exportação do resumo ---
-           resumo_dict = st.session_state.get("resumo_resultado") or {}
-           resumo_dict["Leitura do prédio (kWh)"] = st.session_state.get("leitura_predio_at", 0)
+            
+     # --- Exportação do resumo ---
+# Garante que o dicionário exista
+resumo_dict = st.session_state.get("resumo_resultado")
+if resumo_dict is None or not isinstance(resumo_dict, dict):
+    resumo_dict = {}
 
+# Padroniza a chave do resumo (use sempre mesma capitalização)
+# IMPORTANTE: mantenha exatamente "Leitura do prédio (kWh)" para casar com a importação
+resumo_dict["Leitura do prédio (kWh)"] = st.session_state.get("leitura_predio_at", 0)
+
+# Salva de volta no session_state (caso seu fluxo dependa disso depois)
+st.session_state["resumo_resultado"] = resumo_dict
+
+
+# --- Exportação do rateio ---
+# Verifica se o df de resultado existe e é um DataFrame não vazio
+df_resultado = st.session_state.get("df_resultado", None)
+
+if df_resultado is None:
+    st.warning("Não há resultados para exportar (df_resultado está vazio). Gere o rateio antes de exportar.")
+else:
+    # Cria uma cópia segura
+    df_export = df_resultado.copy()
+
+    # Garante que o índice (linhas) represente as unidades
+    df_export.index.name = "Unidade"
+
+    # Caso você esteja adicionando leitura atual das quitinetes na exportação:
+    # n deve estar definido previamente no fluxo (ex.: na interface)
+    n = st.session_state.get("num_quitinetes", len(df_export))
+
+    # Monta a coluna de leitura atual (se já houver os valores no session_state)
+    leitura_predio_at = st.session_state.get("leitura_predio_at", None)
+
+    # Adiciona apenas se fizer sentido (evita erro se não houver dados)
+    # Supondo que a última linha seja "Áreas Comuns" ou "Prédio" no df_export
+    if all(st.session_state.get(f"at_{i}") is not None for i in range(n)):
+        df_export["Leitura atual (kWh)"] = [
+            st.session_state.get(f"at_{i}", 0) for i in range(n)
+        ]
+
+        # Se existir a linha das áreas comuns/prédio, adiciona também leitura do prédio ao fim
+        if leitura_predio_at is not None and ("Áreas Comuns" in df_export.index or "Prédio" in df_export.index):
+            # Preenche por rótulo, se existir
+            if "Áreas Comuns" in df_export.index:
+                df_export.loc["Áreas Comuns", "Leitura atual (kWh)"] = leitura_predio_at
+            elif "Prédio" in df_export.index:
+                df_export.loc["Prédio", "Leitura atual (kWh)"] = leitura_predio_at
+
+    # A partir daqui, você segue com a escrita em Excel normalmente:
+    # with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+    #     df_export.to_excel(writer, sheet_name="Rateio")
+    #     pd.DataFrame(list(resumo_dict.items()), columns=["Item", "Valor"]).to_excel(writer, sheet_name="Resumo", index=False)
        # --- Exportação do rateio ---
            df_export = st.session_state.df_resultado.copy()
            df_export.index.name = "Unidade"
