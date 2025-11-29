@@ -325,7 +325,7 @@ wrote_any_sheet = False  # Flag para saber se alguma aba foi escrita
 
 with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
     try:
-          # --- Aba Rateio ---
+           # --- Aba Rateio ---
     df_export = st.session_state.df_resultado.copy()
     df_export.index.name = "Unidade"
 
@@ -352,7 +352,9 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         for cell in col_cells:
             if cell.value is not None:
                 max_length = max(max_length, len(str(cell.value)))
-        ws.column_dimensions[col_letter].width = max_length + 2
+        ws.column_dimensions[col_letter].width = max_length + 2   
+
+ 
         # === ABA HISTÓRICO ===
         historico_df = st.session_state.get("historico")
         if isinstance(historico_df, pd.DataFrame) and not historico_df.empty:
