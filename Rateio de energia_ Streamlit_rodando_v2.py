@@ -323,37 +323,47 @@ from openpyxl.utils import get_column_letter
 buffer = io.BytesIO()
 wrote_any_sheet = False  # Flag para saber se alguma aba foi escrita
 
+# Cria o writer para o Excel
 with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
     try:
-           # --- Aba Rateio ---
-    df_export = st.session_state.df_resultado.copy()
-    df_export.index.name = "Unidade"
+        wrote_any_sheet = False  # controla se pelo menos uma aba foi escrita
 
-    # Adiciona coluna de leitura atual (apenas para quitinetes)
-    df_export["Leitura atual (kWh)"] = 0
-    for i, unidade in enumerate(df_export.index):
-        if unidade.startswith("Quitinete"):
-            leitura_atual = st.session_state.get(f"at_{i}", 0)
-            df_export.loc[unidade, "Leitura atual (kWh)"] = leitura_atual
+        # --- Aba Rateio ---
+        df_export = st.session_state.df_resultado.copy()
+        df_export.index.name = "Unidade"
 
-    # Áreas Comuns não recebe leitura do prédio
-    # Ela continua mostrando apenas o consumo calculado
+        # Adiciona coluna de leitura atual (apenas para quitinetes)
+        df_export["Leitura atual (kWh)"] = 0
+        for i, unidade in enumerate(df_export.index):
+            if unidade.startswith("Quitinete"):
+                # Atenção à chave do session_state: use f"at_{i}" (com underscore)
+                leitura_atual = st.session_state.get(f"at_{i}", 0)
+                df_export.loc[unidade, "Leitura atual (kWh)"] = leitura_atual
 
-    # Exporta aba Rateio
-    df_export.to_excel(writer, sheet_name="Rateio", index=True)
-    wrote_any_sheet = True
+        # Exporta aba Rateio
+        df_export.to_excel(writer, sheet_name="Rateio", index=True)
+        wrote_any_sheet = True
 
-    # Ajusta largura das colunas da aba Rateio
-    ws = writer.sheets["Rateio"]
-    for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
-                                  min_col=1, max_col=ws.max_column):
-        max_length = 0
-        col_letter = get_column_letter(col_cells[0].column)
-        for cell in col_cells:
-            if cell.value is not None:
-                max_length = max(max_length, len(str(cell.value)))
-        ws.column_dimensions[col_letter].width = max_length + 2   
+        # Ajusta largura das colunas da aba Rateio
+        ws = writer.sheets["Rateio"]
+        for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
+                                      min_col=1, max_col=ws.max_column):
+            max_length = 0
+            col_letter = get_column_letter(col_cells[0].column)
+            for cell in col_cells:
+                if cell.value is not None:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = max_length + 2
 
+        # (Opcional) Outras abas podem vir aqui com a mesma indentação
+
+        # Se nenhuma aba foi escrita, cria uma aba padrão
+        if not wrote_any_sheet:
+            pd.DataFrame({'Mensagem': ['Nenhum dado disponível']}).to_excel(writer, sheet_name='Vazio')
+
+    except Exception as e:
+        # Em caso de erro, cria aba de erro com a mensagem
+        pd.DataFrame({'Erro': [str(e)]}).to_excel(writer, sheet_name='Erro')
  
         # === ABA HISTÓRICO ===
         historico_df = st.session_state.get("historico")
