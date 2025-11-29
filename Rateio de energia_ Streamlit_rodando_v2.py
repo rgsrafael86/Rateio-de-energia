@@ -312,7 +312,7 @@ if st.session_state.df_resultado is not None:
     for msg in st.session_state.alertas_resultado:
         st.warning(msg)
 
-  import io
+import io
 import pandas as pd
 from openpyxl.utils import get_column_letter
 
