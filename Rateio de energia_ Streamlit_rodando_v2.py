@@ -359,60 +359,65 @@ resumo_dict["Leitura do prédio (kWh)"] = st.session_state.get("leitura_predio_a
 # Salva de volta no session_state (caso seu fluxo dependa disso depois)
 st.session_state["resumo_resultado"] = resumo_dict
 
+import pandas as pd
+from openpyxl.utils import get_column_letter
 
 # --- Exportação do rateio ---
-# Verifica se o df de resultado existe e é um DataFrame não vazio
 df_resultado = st.session_state.get("df_resultado", None)
 
-if df_resultado is None:
-    st.warning("Não há resultados para exportar (df_resultado está vazio). Gere o rateio antes de exportar.")
+if df_resultado is None or not isinstance(df_resultado, pd.DataFrame) or df_resultado.empty:
+    st.warning("Não há resultados para exportar. Gere o rateio antes de continuar.")
 else:
     # Cria uma cópia segura
     df_export = df_resultado.copy()
-
-    # Garante que o índice (linhas) represente as unidades
     df_export.index.name = "Unidade"
 
-    # Caso você esteja adicionando leitura atual das quitinetes na exportação:
-    # n deve estar definido previamente no fluxo (ex.: na interface)
+    # Número de quitinetes (definido na importação ou interface)
     n = st.session_state.get("num_quitinetes", len(df_export))
 
-    # Monta a coluna de leitura atual (se já houver os valores no session_state)
+    # Leitura atual do prédio
     leitura_predio_at = st.session_state.get("leitura_predio_at", None)
 
-    # Adiciona apenas se fizer sentido (evita erro se não houver dados)
-    # Supondo que a última linha seja "Áreas Comuns" ou "Prédio" no df_export
-    if all(st.session_state.get(f"at_{i}") is not None for i in range(n)):
-        df_export["Leitura atual (kWh)"] = [
-            st.session_state.get(f"at_{i}", 0) for i in range(n)
-        ]
+    # Monta coluna de leitura atual (quitinetes)
+    df_export["Leitura atual (kWh)"] = 0  # inicializa
 
-        # Se existir a linha das áreas comuns/prédio, adiciona também leitura do prédio ao fim
-        if leitura_predio_at is not None and ("Áreas Comuns" in df_export.index or "Prédio" in df_export.index):
-            # Preenche por rótulo, se existir
-            if "Áreas Comuns" in df_export.index:
-                df_export.loc["Áreas Comuns", "Leitura atual (kWh)"] = leitura_predio_at
-            elif "Prédio" in df_export.index:
-                df_export.loc["Prédio", "Leitura atual (kWh)"] = leitura_predio_at
+    for i, unidade in enumerate(df_export.index):
+        leitura_atual = st.session_state.get(f"at_{i}", 0)
+        df_export.loc[unidade, "Leitura atual (kWh)"] = leitura_atual
 
-    # A partir daqui, você segue com a escrita em Excel normalmente:
-    # with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-    #     df_export.to_excel(writer, sheet_name="Rateio")
-    #     pd.DataFrame(list(resumo_dict.items()), columns=["Item", "Valor"]).to_excel(writer, sheet_name="Resumo", index=False)
-       # --- Exportação do rateio ---
-           df_export = st.session_state.df_resultado.copy()
-           df_export.index.name = "Unidade"
+    # Adiciona leitura do prédio se houver linha correspondente
+    if leitura_predio_at is not None:
+        if "Áreas Comuns" in df_export.index:
+            df_export.loc["Áreas Comuns", "Leitura atual (kWh)"] = leitura_predio_at
+        elif "Prédio" in df_export.index:
+            df_export.loc["Prédio", "Leitura atual (kWh)"] = leitura_predio_at
 
-       # Adiciona coluna de leitura atual (quitinetes + prédio)
-           df_export["Leitura atual (kWh)"] = [
-           st.session_state.get(f"at_{i}", 0) for i in range(n)
-         ] + ([st.session_state.get("leitura_predio_at", 0)] if "Áreas Comuns" in df_export.index else [])     
+    # --- Exportação do resumo ---
+    resumo_dict = st.session_state.get("resumo_resultado") or {}
+    resumo_dict["Leitura do prédio (kWh)"] = leitura_predio_at
 
-        # Se nenhuma aba foi escrita por algum motivo, garanta ao menos uma visível
+    # --- Escrita em Excel ---
+    buffer = io.BytesIO()
+    wrote_any_sheet = False
+
+    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+        # Aba Rateio
+        if not df_export.empty:
+            df_export.to_excel(writer, sheet_name="Rateio")
+            wrote_any_sheet = True
+
+        # Aba Resumo
+        if resumo_dict:
+            pd.DataFrame(list(resumo_dict.items()), columns=["Item", "Valor"]).to_excel(
+                writer, sheet_name="Resumo", index=False
+            )
+            wrote_any_sheet = True
+
+        # Aba fallback se nada foi escrito
         if not wrote_any_sheet:
             pd.DataFrame({"Info": ["Sem dados para exportar"]}).to_excel(writer, sheet_name="Resumo", index=False)
 
-        # Ajuste simples de largura das colunas (para ficar legível ao abrir)
+        # Ajuste de largura das colunas
         for ws in writer.sheets.values():
             for col in ws.columns:
                 max_length = 0
@@ -422,15 +427,15 @@ else:
                         max_length = max(max_length, len(str(cell.value)))
                 ws.column_dimensions[col_letter].width = max_length + 2
 
+    # --- Botão de download ---
     buffer.seek(0)
-    nome_id = (st.session_state.resumo_resultado or {}).get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
+    nome_id = resumo_dict.get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
     st.download_button(
         label="⬇️ Baixar relatório em Excel",
         data=buffer,
         file_name=f"rateio_{str(nome_id).replace('/', '-').replace(':', '-')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
 # ===================== ABA HISTÓRICO (SIMPLIFICADA) =====================
 st.header("📅 Histórico de Rateios")
 if not st.session_state.historico.empty:
