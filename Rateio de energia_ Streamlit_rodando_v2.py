@@ -45,20 +45,12 @@ if arquivo is not None:
             abas = xls.sheet_names
             rateio_imp = pd.read_excel(xls, sheet_name=abas[0]) if abas else pd.DataFrame()
 
-        # Mapeamento das leituras anteriores
-        col_quitinete = None
-        col_consumo = None
-        for col in rateio_imp.columns:
-            lc = str(col).strip().lower()
-            if col_quitinete is None and ("quitinete" in lc or "unidade" in lc):
-                col_quitinete = col
-            if col_consumo is None and ("consumo" in lc or "kwh" in lc or "quilowatts" in lc or "kw" in lc):
-                col_consumo = col
+        # 🔧 Força cabeçalhos consistentes se não existirem
+        if "Unidade" not in rateio_imp.columns:
+            rateio_imp.columns = ["Unidade", "Consumo (kWh)", "Valor (R$)"]
 
-        if col_quitinete and col_consumo:
-            st.session_state.prev_map = dict(zip(rateio_imp[col_quitinete], rateio_imp[col_consumo]))
-        else:
-            st.warning("Planilha 'Rateio' não contém colunas reconhecíveis de unidade e consumo. Importação parcial aplicada.")
+        # Monta o mapeamento de leituras anteriores
+        st.session_state.prev_map = dict(zip(rateio_imp["Unidade"], rateio_imp["Consumo (kWh)"]))
 
         # Guarda o resumo importado
         st.session_state.import_resumo = resumo_imp
@@ -90,20 +82,6 @@ if arquivo is not None:
     except Exception as e:
         st.error("Erro ao importar backup. Verifique se a planilha está correta.")
         st.write(e)
-# ===================== SIDEBAR: CONFIGURAÇÕES DE TARIFA =====================
-st.sidebar.header("⚙️ Tarifas Celesc (R$/kWh com tributos)")
-# TE: Tarifa de Energia | TUSD: Tarifa de Uso do Sistema de Distribuição
-# Usamos duas faixas: até 150 kWh e acima de 150 kWh (modelo comum de residenciais)
-tarifas = {
-    "te_ate_150": st.sidebar.number_input("TE até 150 kWh", value=0.392200, format="%.6f"),
-    "te_acima_150": st.sidebar.number_input("TE acima 150 kWh", value=0.415851, format="%.6f"),
-    "tusd_ate_150": st.sidebar.number_input("TUSD até 150 kWh", value=0.455333, format="%.6f"),
-    "tusd_acima_150": st.sidebar.number_input("TUSD acima 150 kWh", value=0.482660, format="%.6f"),
-}
-
-# COSIP: Contribuição para custeio de iluminação pública (valor fixo na fatura)
-cosip = st.sidebar.number_input("COSIP (R$)", value=17.01, format="%.2f")
-
 # ===================== BANDEIRA TARIFÁRIA =====================
 st.sidebar.header("🚩 Bandeira tarifária")
 bandeira_sel = st.sidebar.radio(
