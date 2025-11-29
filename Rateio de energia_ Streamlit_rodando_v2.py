@@ -229,10 +229,8 @@ if st.button("Calcular"):
 
     # Calcula valores por unidade conforme método
     if metodo_rateio == "Faixas individuais":
-        # Cada unidade calcula como se fosse uma fatura própria
         valores_individuais = [calcular_valor_base(c) for c in consumos_individuais]
     else:
-        # Proporcional ao total da fatura (protege contra divisão por zero)
         valores_individuais = [
             round((c / consumo_total) * valor_total, 2) if consumo_total > 0 else 0.0
             for c in consumos_individuais
@@ -244,19 +242,19 @@ if st.button("Calcular"):
         index=[f"Quitinete {i+1} - {nomes_inquilinos[i]}" for i in range(n)]
     )
 
-    # Calcula Áreas Comuns (diferença entre total e soma das unidades)
+    # Calcula Áreas Comuns
     soma_consumo_individual = float(sum(consumos_individuais))
     soma_valores_individuais = float(sum(valores_individuais))
     consumo_areas_comuns = round(consumo_total - soma_consumo_individual, 2)
     valor_areas_comuns = round(valor_total - soma_valores_individuais, 2)
 
-    # Normaliza ruídos de arredondamento muito pequenos
+    # Normaliza ruídos de arredondamento
     if abs(consumo_areas_comuns) < 0.01:
         consumo_areas_comuns = 0.0
     if abs(valor_areas_comuns) < 0.01:
         valor_areas_comuns = 0.0
 
-    # Lista de alertas (avisos) para inconsistências
+    # Alertas
     alertas = []
     if consumo_areas_comuns < 0:
         alertas.append("Consumo das quitinetes excede o consumo total do prédio. Ajustei Áreas Comuns para 0 kWh.")
@@ -265,7 +263,7 @@ if st.button("Calcular"):
         alertas.append("Soma dos valores individuais excede o total da fatura. Ajustei Áreas Comuns para R$ 0,00.")
         valor_areas_comuns = 0.0
 
-    # Adiciona linha de Áreas Comuns se houver valor/consumo relevante
+    # Adiciona linha de Áreas Comuns se necessário
     if (consumo_areas_comuns != 0.0) or (valor_areas_comuns != 0.0):
         df.loc["Áreas Comuns"] = [consumo_areas_comuns, valor_areas_comuns]
 
@@ -276,23 +274,23 @@ if st.button("Calcular"):
     for msg in alertas:
         st.warning(msg)
 
-    # Salva resultado em session_state para exibir fora do bloco do botão
-st.session_state.df_resultado = df
-st.session_state.alertas_resultado = alertas
-st.session_state.resumo_resultado = {
-    "Identificação": nome_simulacao,
-    "Consumo total (kWh)": consumo_total,
-    "Valor base (R$)": valor_base,
-    "COSIP (R$)": cosip,
-    "Total fatura (R$)": valor_total,
-    "Bandeira por faixa": "Sim" if usar_bandeira_por_faixa else "Não",
-    "Método de rateio": metodo_rateio,
-    "Fonte do consumo total": fonte_consumo,
-    "Leitura do prédio (kWh)": leitura_predio_at
-}
+    # Salva resultado
+    st.session_state.df_resultado = df
+    st.session_state.alertas_resultado = alertas
+    st.session_state.resumo_resultado = {
+        "Identificação": nome_simulacao,
+        "Consumo total (kWh)": consumo_total,
+        "Valor base (R$)": valor_base,
+        "COSIP (R$)": cosip,
+        "Total fatura (R$)": valor_total,
+        "Bandeira por faixa": "Sim" if usar_bandeira_por_faixa else "Não",
+        "Método de rateio": metodo_rateio,
+        "Fonte do consumo total": fonte_consumo,
+        "Leitura do prédio (kWh)": leitura_predio_at  # ✅ Correção aplicada
+    }
 
-    # Adiciona ao histórico (cada unidade + possíveis Áreas Comuns)
-adicionar_historico(nome_simulacao, df, valor_total, consumo_total)
+    # Adiciona ao histórico
+    adicionar_historico(nome_simulacao, df, valor_total, consumo_total)
 
 # ===================== EXIBIÇÃO PERSISTENTE DE RESULTADOS =====================
 # Mostra tabela, gráfico e botão de exportar mesmo após outras interações
