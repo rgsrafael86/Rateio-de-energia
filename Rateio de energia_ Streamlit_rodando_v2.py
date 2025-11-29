@@ -185,6 +185,10 @@ def get_item_resumo(item):
     except Exception:
         return None
 
+# --- Sugere número de quitinetes com base no backup ---
+n_sugerido = len(st.session_state.prev_map) if st.session_state.prev_map else 1
+st.session_state["n_sugerido"] = n_sugerido  # usado no slider principal depois
+
 # --- Leitura anterior do prédio ---
 leitura_predio_ant_backup = get_item_resumo("Leitura do prédio (kWh)")
 if leitura_predio_ant_backup is not None:
@@ -198,15 +202,12 @@ if st.session_state.prev_map:
     st.markdown("🏠 Leituras e nomes sugeridos para as quitinetes:")
     for i, unidade in enumerate(st.session_state.prev_map.keys()):
         leitura = st.session_state.prev_map[unidade]
-        # extrai nome após o hífen, se existir
         nome_sugerido = unidade.split("-")[-1].strip() if "-" in unidade else unidade.strip()
         st.write(f"- {unidade}: {leitura} kWh (nome sugerido: {nome_sugerido})")
 
         aplicar_quit = st.checkbox(f"Aplicar dados do backup para {unidade}", value=False, key=f"aplicar_{i}")
         if aplicar_quit:
-            # aplica leitura anterior
             st.session_state[f"ant_{i}"] = int(float(leitura))
-            # aplica nome sugerido
             st.session_state[f"nome_{i}"] = nome_sugerido
 
 # --- COSIP ---
@@ -240,6 +241,7 @@ if fonte_backup is not None:
     aplicar_fonte = st.checkbox("Aplicar fonte do consumo do backup", value=False)
     if aplicar_fonte and fonte_backup in ["Leituras do prédio", "Soma das quitinetes"]:
         st.session_state["fonte_consumo"] = fonte_backup
+        
 # ===================== INTERFACE PRINCIPAL =====================
 # Leituras do prédio (medidor principal)
 st.header("🔢 Leituras do prédio")
