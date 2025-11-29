@@ -334,48 +334,46 @@ wrote_any_sheet = False  # flag para saber se alguma aba foi escrita
 
 with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
 
-    # --- Aba Rateio ---
-    try:
-        df_export = st.session_state.df_resultado.copy()
-        df_export.index.name = "Quitinete"
-        df_export.to_excel(writer, sheet_name="Rateio", index=True)
-        wrote_any_sheet = True
+  # --- Aba Rateio ---
+try:
+    df_export = st.session_state.df_resultado.copy()
+    df_export.index.name = "Unidade"
 
-        # Ajusta largura das colunas da aba "Rateio"
-        ws = writer.book["Rateio"]
-        for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
-            max_length = 0
-            col_letter = get_column_letter(col_cells[0].column)
-            for cell in col_cells:
-                if cell.value is not None:
-                    max_length = max(max_length, len(str(cell.value)))
-            ws.column_dimensions[col_letter].width = max_length + 2
+    # Inicializa coluna de leitura atual
+    df_export["Leitura atual (kWh)"] = 0
 
-    except Exception:
-        # Se por algum motivo df_resultado falhar, cria uma aba mínima
-        pd.DataFrame({"Quitinete": [], "Consumo (kWh)": [], "Valor (R$)": []}).to_excel(
-            writer, sheet_name="Rateio", index=False
-        )
-        wrote_any_sheet = True
+    # Preenche leitura atual das quitinetes
+    for i, unidade in enumerate(df_export.index):
+        leitura_atual = st.session_state.get(f"at_{i}", 0)
+        df_export.loc[unidade, "Leitura atual (kWh)"] = leitura_atual
 
-    # --- Aba Resumo ---
-    if resumo_dict:
-        itens = list(resumo_dict.keys())
-        valores = [str(v) if not isinstance(v, (int, float, str)) else v for v in resumo_dict.values()]
-        resumo = pd.DataFrame({"Item": itens, "Valor": valores})
-        resumo.to_excel(writer, sheet_name="Resumo", index=False)
-        wrote_any_sheet = True
+    # Preenche leitura do prédio, se houver linha correspondente
+    leitura_predio_at = st.session_state.get("leitura_predio_at", None)
+    if leitura_predio_at is not None:
+        if "Áreas Comuns" in df_export.index:
+            df_export.loc["Áreas Comuns", "Leitura atual (kWh)"] = leitura_predio_at
+        elif "Prédio" in df_export.index:
+            df_export.loc["Prédio", "Leitura atual (kWh)"] = leitura_predio_at
 
-        # Ajusta largura das colunas da aba "Resumo"
-        ws = writer.book["Resumo"]
-        for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
-            max_length = 0
-            col_letter = get_column_letter(col_cells[0].column)
-            for cell in col_cells:
-                if cell.value is not None:
-                    max_length = max(max_length, len(str(cell.value)))
-            ws.column_dimensions[col_letter].width = max_length + 2
+    # Exporta para Excel
+    df_export.to_excel(writer, sheet_name="Rateio", index=True)
+    wrote_any_sheet = True
 
+    # Ajusta largura das colunas da aba "Rateio"
+    ws = writer.book["Rateio"]
+    for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+        max_length = 0
+        col_letter = get_column_letter(col_cells[0].column)
+        for cell in col_cells:
+            if cell.value is not None:
+                max_length = max(max_length, len(str(cell.value)))
+        ws.column_dimensions[col_letter].width = max_length + 2
+
+except Exception:
+    # Se por algum motivo df_resultado falhar, cria uma aba mínima
+    pd.DataFrame({"Unidade": ["Erro"], "kWh": [0], "Valor (R$)": [0]}).to_excel(
+        writer, sheet_name="Rateio", index=False
+    )
     # --- Aba Histórico ---
     historico_df = st.session_state.get("historico")
     if isinstance(historico_df, pd.DataFrame) and not historico_df.empty:
