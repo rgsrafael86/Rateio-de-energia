@@ -324,6 +324,10 @@ buffer = io.BytesIO()
 wrote_any_sheet = False  # Flag para saber se alguma aba foi escrita
 
 # Cria o writer para o Excel
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from openpyxl.utils import get_column_letter
+
 with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
     try:
         wrote_any_sheet = False
@@ -335,13 +339,14 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         # Adiciona coluna de leitura atual (apenas para quitinetes)
         df_export["Leitura atual (kWh)"] = 0
         for i, unidade in enumerate(df_export.index):
-            if unidade.startswith("Quitinete"):
+            if isinstance(unidade, str) and unidade.startswith("Quitinete"):
                 leitura_atual = st.session_state.get(f"at_{i}", 0)
                 df_export.loc[unidade, "Leitura atual (kWh)"] = leitura_atual
 
         df_export.to_excel(writer, sheet_name="Rateio", index=True)
         wrote_any_sheet = True
 
+        # Ajusta largura das colunas da aba Rateio
         ws = writer.sheets["Rateio"]
         for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row,
                                       min_col=1, max_col=ws.max_column):
@@ -390,13 +395,6 @@ with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
 
     except Exception as e:
         pd.DataFrame({'Erro': [str(e)]}).to_excel(writer, sheet_name='Erro')
-
-    # Se nenhuma aba foi escrita, cria uma aba padrão
-    if not wrote_any_sheet:
-        pd.DataFrame({"Info": ["Sem dados para exportar"]}).to_excel(writer, sheet_name="Resumo", index=False)
-
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
 # Finaliza e prepara buffer para download
 buffer.seek(0)
