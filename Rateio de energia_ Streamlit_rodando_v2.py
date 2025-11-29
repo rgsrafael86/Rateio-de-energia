@@ -365,41 +365,25 @@ from openpyxl.utils import get_column_letter
 import io
 import pandas as pd
 
-# --- Exportação do rateio ---
-df_resultado = st.session_state.get("df_resultado", None)
+import io
+import pandas as pd
+from openpyxl.utils import get_column_letter
 
-if df_resultado is None or not isinstance(df_resultado, pd.DataFrame) or df_resultado.empty:
-    st.warning("Não há resultados para exportar. Gere o rateio antes de continuar.")
-else:
-    df_export = df_resultado.copy()
-    df_export.index.name = "Unidade"
+# Cria buffer de memória para armazenar o arquivo Excel
+buffer = io.BytesIO()
+wrote_any_sheet = False  # flag para saber se alguma aba foi escrita
 
-    n = st.session_state.get("num_quitinetes", len(df_export))
+# Abre o escritor de Excel usando openpyxl (permite ajustar largura de colunas)
+with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
 
-    df_export["Leitura atual (kWh)"] = 0
-    for i, unidade in enumerate(df_export.index):
-        df_export.loc[unidade, "Leitura atual (kWh)"] = st.session_state.get(f"at_{i}", 0)
-
-    leitura_predio_at = st.session_state.get("leitura_predio_at", None)
-    if leitura_predio_at is not None:
-        if "Áreas Comuns" in df_export.index:
-            df_export.loc["Áreas Comuns", "Leitura atual (kWh)"] = leitura_predio_at
-        elif "Prédio" in df_export.index:
-            df_export.loc["Prédio", "Leitura atual (kWh)"] = leitura_predio_at
-
-    resumo_dict = st.session_state.get("resumo_resultado") or {}
-    resumo_dict["Leitura do prédio (kWh)"] = leitura_predio_at
-
-    buffer = io.BytesIO()
-    wrote_any_sheet = False
-
-    # Use xlsxwriter e ajuste largura com set_column
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-    # Aba Rateio
+    # --- Aba Rateio ---
+    # Verifica se o DataFrame de resultado existe e não está vazio
     if not df_export.empty:
+        # Escreve a aba "Rateio"
         df_export.to_excel(writer, sheet_name="Rateio")
         wrote_any_sheet = True
 
+        # Ajusta largura das colunas da aba "Rateio"
         ws = writer.book["Rateio"]
         for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
             max_length = 0
@@ -409,13 +393,16 @@ else:
                     max_length = max(max_length, len(str(cell.value)))
             ws.column_dimensions[col_letter].width = max_length + 2
 
-    # Aba Resumo
+    # --- Aba Resumo ---
+    # Verifica se o dicionário de resumo existe e tem conteúdo
     if resumo_dict:
+        # Escreve a aba "Resumo"
         pd.DataFrame(list(resumo_dict.items()), columns=["Item", "Valor"]).to_excel(
             writer, sheet_name="Resumo", index=False
         )
         wrote_any_sheet = True
 
+        # Ajusta largura das colunas da aba "Resumo"
         ws = writer.book["Resumo"]
         for col_cells in ws.iter_cols(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
             max_length = 0
@@ -424,38 +411,25 @@ else:
                 if cell.value is not None:
                     max_length = max(max_length, len(str(cell.value)))
             ws.column_dimensions[col_letter].width = max_length + 2
-        if not wrote_any_sheet:
-            pd.DataFrame({"Info": ["Sem dados para exportar"]}).to_excel(writer, sheet_name="Resumo", index=False)
 
-    buffer.seek(0)
-    nome_id = (st.session_state.get("resumo_resultado") or {}).get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
-    st.download_button(
-        label="⬇️ Baixar relatório em Excel",
-        data=buffer,
-        file_name=f"rateio_{str(nome_id).replace('/', '-').replace(':', '-')}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-        # Aba Resumo
-        if resumo_dict:
-            pd.DataFrame(list(resumo_dict.items()), columns=["Item", "Valor"]).to_excel(
-                writer, sheet_name="Resumo", index=False
-            )
-            wrote_any_sheet = True
+    # --- Aba fallback ---
+    # Se nenhuma aba foi escrita, cria uma aba padrão com aviso
+    if not wrote_any_sheet:
+        pd.DataFrame({"Info": ["Sem dados para exportar"]}).to_excel(writer, sheet_name="Resumo", index=False)
 
-        # Aba fallback se nada foi escrito
-        if not wrote_any_sheet:
-            pd.DataFrame({"Info": ["Sem dados para exportar"]}).to_excel(writer, sheet_name="Resumo", index=False)
+# --- Finaliza e prepara botão de download ---
+buffer.seek(0)  # reposiciona o ponteiro do buffer para o início
 
-        # Ajuste de largura das colunas
-        for ws in writer.sheets.values():
-            for col in ws.columns:
-                max_length = 0
-                col_letter = get_column_letter(col[0].column)
-                for cell in col:
-                    if cell.value is not None:
-                        max_length = max(max_length, len(str(cell.value)))
-                ws.column_dimensions[col_letter].width = max_length + 2
+# Define nome do arquivo com base na identificação ou data/hora
+nome_id = (st.session_state.get("resumo_resultado") or {}).get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
 
+# Cria botão para baixar o arquivo gerado
+st.download_button(
+    label="⬇️ Baixar relatório em Excel",
+    data=buffer,
+    file_name=f"rateio_{str(nome_id).replace('/', '-').replace(':', '-')}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
     # --- Botão de download ---
     buffer.seek(0)
     nome_id = resumo_dict.get("Identificação", hora_local.strftime("%d-%m-%Y_%H-%M"))
