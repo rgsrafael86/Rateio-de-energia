@@ -256,7 +256,7 @@ nome_simulacao = st.text_input("Identificação da simulação", value=hora_loca
 
 # Leituras das quitinetes (cada unidade)
 st.header("🏠 Leituras das quitinetes")
-n = st.slider("Número de quitinetes", 1, 10, value=st.session_state.get("n_sugerido", 7))
+n = st.slider("Número de quitinetes", 1, 10, value=st.session_state.get("n_sugerido", 1))
 consumos_individuais = []
 nomes_inquilinos = []
 
