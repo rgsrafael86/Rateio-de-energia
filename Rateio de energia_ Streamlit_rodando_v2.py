@@ -95,7 +95,7 @@ tarifas = {
 }
 
 # COSIP: Contribuição para custeio de iluminação pública (valor fixo na fatura)
-cosip = st.sidebar.number_input("COSIP (R$)", value=17.01, format="%.2f")
+cosip = st.sidebar.number_input("COSIP (R$)", value=61.00, format="%.2f")
 # ===================== BANDEIRA TARIFÁRIA =====================
 st.sidebar.header("🚩 Bandeira tarifária")
 bandeira_sel = st.sidebar.radio(
