@@ -9,7 +9,7 @@ from openpyxl.utils import get_column_letter  # Ajuste automático de largura da
 
 # ===================== CONFIGURAÇÃO DA PÁGINA =====================
 st.set_page_config(page_title="Rateio de Energia", page_icon="💡", layout="wide")
-st.title("💡 Rateio de Energia - Quitinetes")
+st.title("💡 Rateio de pagamentos de energia ")
 
 # ===================== ESTADO (SESSION_STATE) =====================
 # Guardamos histórico, último resultado e resumo para persistirem após cliques
